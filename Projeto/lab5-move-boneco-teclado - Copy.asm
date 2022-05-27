@@ -31,9 +31,11 @@ ATRASO			EQU	400H		; atraso para limitar a velocidade de movimento do boneco
 
 LARGURA		EQU	5			; largura do boneco
 ALTURA		EQU 4			; altura do boneco
-RED		EQU	0FF00H		; cor do pixel: vermelho em ARGB (opaco e vermelho no máximo, verde e azul a 0)
-BLACK	EQU 0F000H
-WHITE 	EQU 0FFFFH
+RED		EQU	0FF00H		; cor vermelha
+BLACK	EQU 0F000H		; cor preta
+WHITE 	EQU 0FFFFH		; cor branca
+BLUE	EQU 0F3CDH		; cor azul
+GRAY	equ 0FCCCH		; cor cinzenta
 
 ; *********************************************************************************
 ; * Dados 
@@ -49,9 +51,9 @@ SP_inicial:				; este é o endereço (1200H) com que o SP deve ser
 DEF_BONECO:					; tabela que define o boneco (cor, largura, altura, pixels)
 	WORD		LARGURA
 	WORD		ALTURA
-	WORD		0, 0, WHITE, 0, 0
-	WORD		BLACK, 0, WHITE, 0, BLACK		; # # #   as cores podem ser diferentes
-	WORD		BLACK, BLACK, BLACK, BLACK, BLACK		; # # #   as cores podem ser diferentes
+	WORD		0, 	0, 	BLUE, 0, 0
+	WORD		GRAY, 0, BLUE, 0, GRAY		
+	WORD		GRAY, GRAY, GRAY, GRAY, GRAY
     WORD		0, RED, 0, RED
 
 
@@ -121,6 +123,9 @@ desenha_boneco:       		; desenha o boneco a partir da tabela
 	PUSH	R4
 	PUSH	R5
 	PUSH	R6
+	PUSH 	R7
+
+	MOV	R7, R2				; guarda o valor da coluna 
 	MOV	R4, DEF_BONECO		; endereço da tabela que define a largura do boneco
 	MOV	R5, [R4]			; obtém a largura do boneco
 	ADD R4, 2				; endereço da tabela que define a altura do boneco
@@ -128,7 +133,6 @@ desenha_boneco:       		; desenha o boneco a partir da tabela
 	ADD	R4, 2				; primeira cor
 
 desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
-	
 	MOV	R3, [R4]			; obtém a cor do próximo pixel do boneco
 	MOV  [DEFINE_LINHA], R1	; seleciona a linha
 	MOV  [DEFINE_COLUNA], R2	; seleciona a coluna
@@ -138,10 +142,11 @@ desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
      SUB  R5, 1			; menos uma coluna para tratar
      JNZ  desenha_pixels      ; continua até percorrer toda a largura do objeto
 	ADD R1, 1			; proxima linha
-	MOV R2, COLUNA		; Repõe a coluna no principio 
+	MOV R2, R7			; Repõe a coluna no principio 
 	MOV R5, LARGURA		; Repõe a largura 
 	SUB R6, 1			; menos uma linha para tratar
 	JNZ desenha_pixels	; continua até percorrer todas as linhas
+	POP R7
 	POP R6
 	POP	R5
 	POP	R4
@@ -165,22 +170,23 @@ apaga_boneco:
 	PUSH	R5
 	PUSH 	R6
 	PUSH 	R7
-	MOV R7, R2
+
+	MOV R7, R2				; guarda o valor da coluna
 	MOV	R5, [R4]			; obtém a largura do boneco
 	ADD R4, 2				; passa para altura
 	MOV R6, [R4]			; obtem a altura do boneco
-	SUB R4, 2
+	SUB R4, 2				; repõe o R4 com o valor da largura
+
 apaga_pixels:       		; desenha os pixels do boneco a partir da tabela
 	MOV	R3, 0			; cor para apagar o próximo pixel do boneco
 	CALL	escreve_pixel		; escreve cada pixel do boneco
      ADD  R2, 1               ; próxima coluna
      SUB  R5, 1			; menos uma coluna para tratar
      JNZ  apaga_pixels      ; continua até percorrer toda a largura do objeto
-	MOV R5, [R4]		; repor largura	
-	MOV R2, R7			; repoe 
-	MOV R5, [R4]
+	MOV R5, [R4]		; repoe a largura	
+	MOV R2, R7			; repoe a coluna
 	 ADD R1, 1			; proxima linha
-	 SUB R6, 1
+	 SUB R6, 1			; menos uma linha para tratar
 	 JNZ apaga_pixels
 
 	POP R7
