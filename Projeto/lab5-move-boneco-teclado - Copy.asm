@@ -65,15 +65,15 @@ inicio:
 	MOV  SP, SP_inicial		; inicializa SP para a palavra a seguir
 						; à última da pilha
                             
-     MOV  [APAGA_AVISO], R1	; apaga o aviso de nenhum cenário selecionado (o valor de R1 não é relevante)
-     MOV  [APAGA_ECRÃ], R1	; apaga todos os pixels já desenhados (o valor de R1 não é relevante)
+    MOV  [APAGA_AVISO], R1	; apaga o aviso de nenhum cenário selecionado (o valor de R1 não é relevante)
+    MOV  [APAGA_ECRÃ], R1	; apaga todos os pixels já desenhados (o valor de R1 não é relevante)
 	MOV	R1, 0			; cenário de fundo número 0
-     MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
+    MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV	R7, 1			; valor a somar à coluna do boneco, para o movimentar
      
 posição_boneco:
-     MOV  R1, LINHA			; linha do boneco
-     MOV  R2, COLUNA		; coluna do boneco
+    MOV R1, LINHA			; linha do boneco
+    MOV	R2, COLUNA		; coluna do boneco
 	MOV	R4, DEF_BONECO		; endereço da tabela que define o boneco
 
 mostra_boneco:
@@ -146,6 +146,7 @@ desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
 	MOV R5, LARGURA		; Repõe a largura 
 	SUB R6, 1			; menos uma linha para tratar
 	JNZ desenha_pixels	; continua até percorrer todas as linhas
+	
 	POP R7
 	POP R6
 	POP	R5
@@ -187,7 +188,7 @@ apaga_pixels:       		; desenha os pixels do boneco a partir da tabela
 	MOV R2, R7			; repoe a coluna
 	 ADD R1, 1			; proxima linha
 	 SUB R6, 1			; menos uma linha para tratar
-	 JNZ apaga_pixels
+	 JNZ apaga_pixels	; continua ate percorrr toda a altura do objeto
 
 	POP R7
 	POP R6
