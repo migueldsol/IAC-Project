@@ -23,15 +23,21 @@ APAGA_AVISO     		EQU 6040H      ; endereço do comando para apagar o aviso de n
 APAGA_ECRÃ	 		EQU 6002H      ; endereço do comando para apagar todos os pixels já desenhados
 SELECIONA_CENARIO_FUNDO  EQU 6042H      ; endereço do comando para selecionar uma imagem de fundo
 
-LINHA        		EQU  28        ; linha do boneco (posição mais baixa)
-COLUNA			EQU  30        ; coluna do boneco (a meio do ecrã)
+LINHA_NAVE      		EQU  28        ; linha do boneco (posição mais baixa)
+COLUNA_NAVE				EQU  30        ; coluna do boneco (a meio do ecrã)
+LINHA_METEORITO      	EQU  30        ; linha do meteorito
+COLUNA_METEORITO		EQU  30        ; coluna do meteorito (a meio do ecrã)
 
 MIN_COLUNA		EQU  0		; número da coluna mais à esquerda que o objeto pode ocupar
 MAX_COLUNA		EQU  63        ; número da coluna mais à direita que o objeto pode ocupar
+MIN_LINHA		EQU	 0
+MAX_LINHA		EQU	 31
 ATRASO			EQU	400H		; atraso para limitar a velocidade de movimento do boneco
 
-LARGURA		EQU	5			; largura do boneco
-ALTURA		EQU 4			; altura do boneco
+LARGURA_NAVE		EQU	5			; largura da nave
+ALTURA_NAVE		EQU 4			; altura da nave
+LARGURA_METEORITO		EQU	4			; largura da METEORITO
+ALTURA_METEORITO		EQU 4			; altura da METEORITO
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
 WHITE 	EQU 0FFFFH		; cor branca
@@ -57,6 +63,14 @@ DEF_BONECO:					; tabela que define o boneco (cor, largura, altura, pixels)
 	WORD		GRAY, GRAY, GRAY, GRAY, GRAY
     WORD		0, RED, 0, RED
 
+DEF_METEORITO:					; tabela que define o meteorito (cor, largura, altura, pixels)
+	WORD		LARGURA_METEORITO
+	WORD		ALTURA_METEORITO
+	WORD		RED, 0 , 0 , RED
+	WORD		RED, 0 , 0 , RED
+	WORD		0, RED , RED, 0
+    WORD		RED, 0 , 0 , RED
+
 
 ; *********************************************************************************
 ; * Código
@@ -73,13 +87,21 @@ inicio:
 	MOV	R7, 1			; valor a somar à coluna do boneco, para o movimentar
 	MOV R10, TECLA_DIREITA
 	MOV R11, TECLA_ESQUERDA
-     
-posição_boneco:
-     MOV  R1, LINHA			; linha do boneco
-     MOV  R2, COLUNA		; coluna do boneco
+
+posição_meteorito:
+     MOV  R1, LINHA_METEORITO			; linha do boneco
+     MOV  R2, COLUNA_METEORITO		; coluna do boneco
+	MOV	R4, DEF_METEORITO		; endereço da tabela que define o boneco
+
+mostra_meteorito:
+	CALL	desenha_boneco		; desenha o boneco a partir da tabela 
+
+posição_nave:
+     MOV  R1, LINHA_NAVE			; linha do boneco
+     MOV  R2, COLUNA_NAVE		; coluna do boneco
 	MOV	R4, DEF_BONECO		; endereço da tabela que define o boneco
 
-mostra_boneco:
+mostra_nave:
 	CALL	desenha_boneco		; desenha o boneco a partir da tabela
 
 wait_tecla:				; neste ciclo espera-se até uma tecla ser premida
@@ -105,7 +127,7 @@ move_boneco:
 coluna_seguinte:
 	ADD	R2, R7			; para desenhar objeto na coluna seguinte (direita ou esquerda)
 
-	JMP	mostra_boneco		; vai desenhar o boneco de novo
+	JMP	mostra_nave		; vai desenhar o boneco de novo
 
 
 ; **********************************************************************
@@ -124,9 +146,11 @@ desenha_boneco:       		; desenha o boneco a partir da tabela
 	PUSH	R5
 	PUSH	R6
 	PUSH 	R7
+	PUSH	R8
 
 	MOV	R7, R2				; guarda o valor da coluna 
 	MOV	R5, [R4]			; obtém a largura do boneco
+	MOV R8, R5				; repor a largura
 	ADD R4, 2				; endereço da tabela que define a altura do boneco
 	MOV R6, [R4]			; obtem a altura do boneco
 	ADD	R4, 2				; primeira cor
@@ -142,9 +166,10 @@ desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
      JNZ  desenha_pixels      ; continua até percorrer toda a largura do objeto
 	ADD R1, 1			; proxima linha
 	MOV R2, R7			; Repõe a coluna no principio 
-	MOV R5, LARGURA		; Repõe a largura 
+	MOV R5, R8		; Repõe a largura 
 	SUB R6, 1			; menos uma linha para tratar
 	JNZ desenha_pixels	; continua até percorrer todas as linhas
+	POP R8
 	POP R7
 	POP R6
 	POP	R5
