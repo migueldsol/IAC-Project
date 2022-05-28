@@ -10,10 +10,11 @@
 ; *********************************************************************************
 TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
-LINHA_TECLADO			EQU 8		; linha a testar (4ª linha, 1000b)
+LINHA_TECLADO		EQU 8		; linha a testar (4ª linha, 1000b)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
-TECLA_ESQUERDA			EQU 1		; tecla na primeira coluna do teclado (tecla C)
-TECLA_DIREITA			EQU 2		; tecla na segunda coluna do teclado (tecla D)
+TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
+TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
+TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
 
 DEFINE_LINHA    		EQU 600AH      ; endereço do comando para definir a linha
 DEFINE_COLUNA   		EQU 600CH      ; endereço do comando para definir a coluna
@@ -35,7 +36,7 @@ RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
 WHITE 	EQU 0FFFFH		; cor branca
 BLUE	EQU 0F3CDH		; cor azul
-GRAY	equ 0FCCCH		; cor cinzenta
+GRAY	EQU 0FCCCH		; cor cinzenta
 
 ; *********************************************************************************
 ; * Dados 
@@ -49,8 +50,8 @@ SP_inicial:				; este é o endereço (1200H) com que o SP deve ser
 						; armazenado em 11FEH (1200H-2)
 							
 DEF_BONECO:					; tabela que define o boneco (cor, largura, altura, pixels)
-	WORD		LARGURA
-	WORD		ALTURA
+	WORD		LARGURA_NAVE
+	WORD		ALTURA_NAVE
 	WORD		0, 	0, 	BLUE, 0, 0
 	WORD		GRAY, 0, BLUE, 0, GRAY		
 	WORD		GRAY, GRAY, GRAY, GRAY, GRAY
@@ -70,6 +71,8 @@ inicio:
 	MOV	R1, 0			; cenário de fundo número 0
     MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV	R7, 1			; valor a somar à coluna do boneco, para o movimentar
+	MOV R10, TECLA_DIREITA
+	MOV R11, TECLA_ESQUERDA
      
 posição_boneco:
     MOV R1, LINHA			; linha do boneco
@@ -79,25 +82,22 @@ posição_boneco:
 mostra_boneco:
 	CALL	desenha_boneco		; desenha o boneco a partir da tabela
 
-espera_tecla:				; neste ciclo espera-se até uma tecla ser premida
-	MOV  R6, LINHA_TECLADO	; linha a testar no teclado
-	CALL	teclado			; leitura às teclas
-	CMP	R0, 0
-	JZ	espera_tecla		; espera, enquanto não houver tecla
-	CMP	R0, TECLA_ESQUERDA
+wait_tecla:				; neste ciclo espera-se até uma tecla ser premida
+	CALL	teclado			; leitura às tecla
+	CMP	R0, R11
 	JNZ	testa_direita
 	MOV	R7, -1			; vai deslocar para a esquerda
 	JMP	ve_limites
 testa_direita:
-	CMP	R0, TECLA_DIREITA
-	JNZ	espera_tecla		; tecla que não interessa
+	CMP	R0, R10
+	JNZ	wait_tecla		; tecla que não interessa
 	MOV	R7, +1			; vai deslocar para a direita
 	
 ve_limites:
 	MOV	R6, [R4]			; obtém a largura do boneco
 	CALL	testa_limites		; vê se chegou aos limites do ecrã e se sim força R7 a 0
 	CMP	R7, 0
-	JZ	espera_tecla		; se não é para movimentar o objeto, vai ler o teclado de novo
+	JZ	wait_tecla		; se não é para movimentar o objeto, vai ler o teclado de novo
 
 move_boneco:
 	CALL	apaga_boneco		; apaga o boneco na sua posição corrente
@@ -126,7 +126,6 @@ desenha_boneco:       		; desenha o boneco a partir da tabela
 	PUSH 	R7
 
 	MOV	R7, R2				; guarda o valor da coluna 
-	MOV	R4, DEF_BONECO		; endereço da tabela que define a largura do boneco
 	MOV	R5, [R4]			; obtém a largura do boneco
 	ADD R4, 2				; endereço da tabela que define a altura do boneco
 	MOV R6, [R4]			; obtem a altura do boneco
@@ -269,18 +268,70 @@ sai_testa_limites:
 ; Retorna: 	R0 - valor lido das colunas do teclado (0, 1, 2, 4, ou 8)	
 ; **********************************************************************
 teclado:
+; inicializa��es
+	PUSH	R1
 	PUSH	R2
 	PUSH	R3
 	PUSH	R5
-	MOV  R2, TEC_LIN   ; endereço do periférico das linhas
-	MOV  R3, TEC_COL   ; endereço do periférico das colunas
-	MOV  R5, MASCARA   ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
-	MOVB [R2], R6      ; escrever no periférico de saída (linhas)
-	MOVB R0, [R3]      ; ler do periférico de entrada (colunas)
-	AND  R0, R5        ; elimina bits para além dos bits 0-3
+	PUSH	R6
+	PUSH	R7
+	PUSH	R8
+	PUSH	R9	
+    MOV  R2, TEC_LIN   ; endere�o do perif�rico das linhas
+    MOV  R3, TEC_COL   ; endere�o do perif�rico das colunas
+    MOV  R5, MASCARA   ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
+
+; corpo principal do programa
+ciclo:
+    MOV R0, 1          ; incializa o R1 a zero
+    MOV R1, 0          ;
+    MOV R6, R1         ; escreve coluna a zero
+    MOV R7, R1         ; escreve calculo posição linha a zero
+    MOV R8, R1         ; escreve caluclo posição coluna a zero
+    MOV R9, 8          ; para comparar com R0
+
+espera_tecla:          ; neste ciclo espera-se at� uma tecla ser premida
+    MOVB [R2],R0       ; ler pertiferico de saída (linhas)
+    MOVB R1, [R3]      ; ler do perif�rico de entrada (colunas)
+    AND  R1, R5        ; elimina bits para al�m dos bits 0-3
+    CMP  R1, 0         ; h� tecla premida?
+    MOV R6,R0          ; para poder verificar se a tecla ainda está pressionada
+    JNZ  calcula_col   ; tecla premida começa a calcular qual foi premida
+    CMP R0,R9          ; verifica se já chegou ao valor 8
+    JZ reiniciar_linha ; vai reiniciar o valor da linha para 1
+    SHL R0,1           ; passa para a próxima linha
+    JMP espera_tecla   ; se nenhuma tecla premida repete
+
+reiniciar_linha:
+    MOV R0,1               ;volta a colocar o valor para a primeira coluna
+    JMP espera_tecla   ;volta para o loop a espera de uma tecla ser pressionada
+
+calcula_col:
+    SHR R1,1           ; realiza um shift right
+    CMP R1,0           ; verifica se ainda não está na coluna certa
+    JZ calcula_line    ; se já estiver na coluna certa vai calcular as linhas
+    INC R8             ; se ainda não estiver a coluna certa incrmenta o contador
+    JMP calcula_col    ; enquanto não estiver na coluna certa continua a correr
+
+calcula_line:
+    SHR R0,1           ; realiza um shift right
+    CMP R0,0           ; verifica se ainda não está na coluna certa
+    JZ tecla           ; se já estiver na coluna certa vai calcular a tecla premida
+    INC R7             ; se ainda não estiver na linha certa incrmenta o contador das linhas
+    JMP calcula_line   ; enquanto não estiver na linha certa continua a correr
+
+tecla:
+    SHL R7,2           ; vai multiplicar o número da linha por 4
+    ADD R8,R7          ; vai adicionar á coluna o número de linhas
+    AND R8,R5          ; elimina bits para além dos bits 0-3
+    MOV R0,R8          ; saber que tecla foi pressionada
+	POP	R9
+	POP	R8
+	POP	R7
+	POP	R6
 	POP	R5
 	POP	R3
 	POP	R2
-	RET
-
+	POP	R1
+	RET	
 
