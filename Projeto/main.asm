@@ -9,7 +9,6 @@ MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do 
 TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
 TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
-TECLA_CIMA			EQU 1		; tecla para movimentar para cima (tecla 1) 
 
 POS_ROVER_X			EQU 1406H
 POS_ROVER_Y			EQU 1408H
@@ -110,31 +109,30 @@ init_ROVER:
 
 obtem_tecla:				; neste ciclo espera-se até uma tecla ser premida
 	CALL	teclado			; leitura às tecla
+	CMP R0, -1
+	JZ obtem_tecla
 	MOV R8, TECLA_ESQUERDA		; valor da tecla esquerda
 	CMP	R0, R8				; compara a tecla carregada com a tecla esquerda (4)
-	JNZ	testa_direita		; se nao for a tecla esquerda testa a tecla direita
+	JNZ	testa_direita		; tecla que nao interessa
 	MOV	R7, -1				; vai deslocar para a esquerda
 	JMP	ve_limites
 
 testa_direita:
 	MOV R9, TECLA_DIREITA		; valor da tecla direita
 	CMP	R0, R9			; compara a tecla carregada com a tecla direita (6)
-	JNZ	testa_baixo		; se nao for a tecla direita testa a tecla baixo
+	JNZ	testa_baixo		; tecla que não interessa
 	MOV	R7, +1			; vai deslocar para a direita
 	JMP ve_limites
 
 testa_baixo:
 	MOV R10, TECLA_BAIXO		; valor da tecla baixo (meteoro)
 	CMP R0, R10			; compara a tecla carregada com a tecla baixo (9)
-	JNZ testa_cima		; se nao for a tecla baixo testa a tecla cima
-	MOV R7, +1			; vai deslocar para baixo
-	JMP ve_limites_meteoro
-
-testa_cima:
-	MOV R11, TECLA_CIMA		; valor da tecla cima (meteoro)
-	CMP R0, R11			; compara a tecla carregada com a tecla cima (1)
 	JNZ obtem_tecla		; tecla que nao interessa
-	MOV R7, -1			; vai deslocar o meteoro para cima
+espera_nao_tecla_meteoro:	
+	CALL teclado
+	CMP R0, -1
+	JNZ espera_nao_tecla_meteoro
+	MOV R7, +1			; vai deslocar para baixo
 	JMP ve_limites_meteoro
 	
 ve_limites:
@@ -400,13 +398,10 @@ espera_tecla:          ; neste ciclo espera-se ate uma tecla ser premida
     MOV R6,R0          ; para poder verificar se a tecla ainda está pressionada
     JNZ  calcula_col   ; tecla premida começa a calcular qual foi premida
     CMP R0,R9          ; verifica se já chegou ao valor 8
-    JZ reiniciar_linha ; vai reiniciar o valor da linha para 1
+    JZ fim_sem_tecla
+
     SHL R0,1           ; passa para a próxima linha
     JMP espera_tecla   ; se nenhuma tecla premida repete
-
-reiniciar_linha:
-    MOV R0,1               ;volta a colocar o valor para a primeira coluna
-    JMP espera_tecla   ;volta para o loop a espera de uma tecla ser pressionada
 
 calcula_col:
     SHR R1,1           ; realiza um shift right
@@ -427,6 +422,7 @@ tecla:
     ADD R8,R7          ; vai adicionar á coluna o número de linhas
     AND R8,R5          ; elimina bits para além dos bits 0-3
     MOV R0,R8          ; saber que tecla foi pressionada
+end:	
 	POP	R9
 	POP	R8
 	POP	R7
@@ -437,3 +433,6 @@ tecla:
 	POP	R1
 	RET	
 
+fim_sem_tecla:
+	MOV R0, -1
+	JMP end
