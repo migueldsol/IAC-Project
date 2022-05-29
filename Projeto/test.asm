@@ -15,6 +15,9 @@ MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do 
 TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
 TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
+E_ESQUERDA			EQU 1400H	; endereco da tecla esquerda
+E_DIREITA			EQU 1402H	; endereco da tecla direita
+E_BAIXO				EQU 1404H	; endereco da tecla baixo
 
 DEFINE_LINHA    		EQU 600AH      ; endereço do comando para definir a linha
 DEFINE_COLUNA   		EQU 600CH      ; endereço do comando para definir a coluna
@@ -25,8 +28,8 @@ SELECIONA_CENARIO_FUNDO  EQU 6042H      ; endereço do comando para selecionar u
 
 LINHA_NAVE      		EQU  28        ; linha do boneco (posição mais baixa)
 COLUNA_NAVE				EQU  30        ; coluna do boneco (a meio do ecrã)
-LINHA_METEORITO      	EQU  30        ; linha do meteorito
-COLUNA_METEORITO		EQU  30        ; coluna do meteorito (a meio do ecrã)
+LINHA_METEORITO      	EQU  2        ; linha do meteorito #
+COLUNA_METEORITO		EQU  30        ; coluna do meteorito (a meio do ecrã) #
 
 MIN_COLUNA		EQU  0		; número da coluna mais à esquerda que o objeto pode ocupar
 MAX_COLUNA		EQU  63        ; número da coluna mais à direita que o objeto pode ocupar
@@ -36,13 +39,16 @@ ATRASO			EQU	400H		; atraso para limitar a velocidade de movimento do boneco
 
 LARGURA_NAVE		EQU	5			; largura da nave
 ALTURA_NAVE		EQU 4			; altura da nave
-LARGURA_METEORITO		EQU	4			; largura da METEORITO
-ALTURA_METEORITO		EQU 4			; altura da METEORITO
+LARGURA_METEORITO		EQU	5			; largura da METEORITO #
+ALTURA_METEORITO		EQU 5			; altura da METEORITO
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
 WHITE 	EQU 0FFFFH		; cor branca
 BLUE	EQU 0F3CDH		; cor azul
 GRAY	EQU 0FCCCH		; cor cinzenta
+GREEN	EQU 0F0F0H		; cor verde #
+BROWN	EQU 0F840H		; cor castanha #
+YELLOW	EQU 0FFF0H		; cor amarela #
 
 ; *********************************************************************************
 ; * Dados 
@@ -66,10 +72,11 @@ DEF_BONECO:					; tabela que define o boneco (cor, largura, altura, pixels)
 DEF_METEORITO:					; tabela que define o meteorito (cor, largura, altura, pixels)
 	WORD		LARGURA_METEORITO
 	WORD		ALTURA_METEORITO
-	WORD		RED, 0 , 0 , RED
-	WORD		RED, 0 , 0 , RED
-	WORD		0, RED , RED, 0
-    WORD		RED, 0 , 0 , RED
+	WORD		YELLOW , 0 , 0 , 0 , YELLOW
+	WORD		RED , 0 , BROWN , 0 , RED
+	WORD		0 , BROWN , BROWN , BROWN, 0
+    WORD		YELLOW , 0 , BROWN , 0 , YELLOW
+	WORD		RED , 0 , 0 , 0 , RED
 
 
 ; *********************************************************************************
@@ -85,16 +92,18 @@ inicio:
 	MOV	R1, 0			; cenário de fundo número 0
      MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV	R7, 1			; valor a somar à coluna do boneco, para o movimentar
-	MOV R10, TECLA_DIREITA
-	MOV R11, TECLA_ESQUERDA
+	MOV R5, TECLA_ESQUERDA  ; guardar valor da tecla esquerda na memoria
+	MOV R8, TECLA_DIREITA	;  guardar valor da tecla direita na memoria
+	MOV R9, TECLA_BAIXO	;  guardar valor da tecla baixo na memoria	
+
 
 posição_meteorito:
-     MOV  R1, LINHA_METEORITO			; linha do boneco
-     MOV  R2, COLUNA_METEORITO		; coluna do boneco
-	MOV	R4, DEF_METEORITO		; endereço da tabela que define o boneco
+     MOV  R1, LINHA_METEORITO			; linha do meteoro #
+     MOV  R2, COLUNA_METEORITO		; coluna do meteoro #
+	MOV	R4, DEF_METEORITO		; endereço da tabela que define o meteoro #
 
 mostra_meteorito:
-	CALL	desenha_boneco		; desenha o boneco a partir da tabela 
+	CALL	desenha_boneco		; desenha o meteoro a partir da tabela 
 
 posição_nave:
      MOV  R1, LINHA_NAVE			; linha do boneco
@@ -106,13 +115,16 @@ mostra_nave:
 
 wait_tecla:				; neste ciclo espera-se até uma tecla ser premida
 	CALL	teclado			; leitura às tecla
-	CMP	R0, R11
+	;MOV R11, TECLA_ESQUERDA ; move o valor da tecla esquerda para o R11
+	CMP	R0, R5	; compara a tecla presionada com a tecla esquerda (4)
 	JNZ	testa_direita
 	MOV	R7, -1			; vai deslocar para a esquerda
 	JMP	ve_limites
+
 testa_direita:
-	CMP	R0, R10
-	JNZ	wait_tecla		; tecla que não interessa
+	;MOV R11, TE	; move o valor da tecla direita para o R11
+	CMP	R0, R8	; compara a tecla presionada com a tecla direita (6)
+	JNZ	move_down		; tecla que não interessa
 	MOV	R7, +1			; vai deslocar para a direita
 	
 ve_limites:
@@ -121,13 +133,24 @@ ve_limites:
 	CMP	R7, 0
 	JZ	wait_tecla		; se não é para movimentar o objeto, vai ler o teclado de novo
 
+move_down:
+	;MOV R11, [E_BAIXO]	;  move o valor da tecla baixo para o R11
+	CMP R0, R9	; compara a tecla presionada com a tecla baixo (9)
+	JNZ wait_tecla	; tecla que nao interessa
+	MOV R7, +1	; vai deslocar para baixo
+
 move_boneco:
 	CALL	apaga_boneco		; apaga o boneco na sua posição corrente
-	
+
 coluna_seguinte:
 	ADD	R2, R7			; para desenhar objeto na coluna seguinte (direita ou esquerda)
 
 	JMP	mostra_nave		; vai desenhar o boneco de novo
+
+linha_seguinte:
+	ADD R1, R7			; para desenhar o meteoro na linha seguinte (baixo)
+
+	JMP mostra_meteorito ; vai desenhar o meteoro de novo
 
 
 ; **********************************************************************
@@ -301,24 +324,24 @@ teclado:
 	PUSH	R7
 	PUSH	R8
 	PUSH	R9	
-    MOV  R2, TEC_LIN   ; endere�o do perif�rico das linhas
-    MOV  R3, TEC_COL   ; endere�o do perif�rico das colunas
+    MOV  R2, TEC_LIN   ; endereco do periferico das linhas
+    MOV  R3, TEC_COL   ; endereco do periferico das colunas
     MOV  R5, MASCARA   ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 
 ; corpo principal do programa
 ciclo:
-    MOV R0, 1          ; incializa o R1 a zero
-    MOV R1, 0          ;
+    MOV R0, 1          ; inicializa o R0 a um #
+    MOV R1, 0          ; inicializa o R1 a zero #
     MOV R6, R1         ; escreve coluna a zero
     MOV R7, R1         ; escreve calculo posição linha a zero
     MOV R8, R1         ; escreve caluclo posição coluna a zero
     MOV R9, 8          ; para comparar com R0
 
-espera_tecla:          ; neste ciclo espera-se at� uma tecla ser premida
+espera_tecla:          ; neste ciclo espera-se ate uma tecla ser premida
     MOVB [R2],R0       ; ler pertiferico de saída (linhas)
-    MOVB R1, [R3]      ; ler do perif�rico de entrada (colunas)
-    AND  R1, R5        ; elimina bits para al�m dos bits 0-3
-    CMP  R1, 0         ; h� tecla premida?
+    MOVB R1, [R3]      ; ler do periferico de entrada (colunas)
+    AND  R1, R5        ; elimina bits para alem dos bits 0-3
+    CMP  R1, 0         ; ha tecla premida?
     MOV R6,R0          ; para poder verificar se a tecla ainda está pressionada
     JNZ  calcula_col   ; tecla premida começa a calcular qual foi premida
     CMP R0,R9          ; verifica se já chegou ao valor 8
