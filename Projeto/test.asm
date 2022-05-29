@@ -72,11 +72,11 @@ DEF_BONECO:					; tabela que define o boneco (cor, largura, altura, pixels)
 DEF_METEORITO:					; tabela que define o meteorito (cor, largura, altura, pixels)
 	WORD		LARGURA_METEORITO
 	WORD		ALTURA_METEORITO
-	WORD		YELLOW , 0 , 0 , 0 , YELLOW
-	WORD		RED , 0 , BROWN , 0 , RED
-	WORD		0 , BROWN , BROWN , BROWN, 0
-    WORD		YELLOW , 0 , BROWN , 0 , YELLOW
-	WORD		RED , 0 , 0 , 0 , RED
+	WORD		YELLOW , 0 , YELLOW , 0 , YELLOW
+	WORD		0 , YELLOW , RED , YELLOW , 0
+	WORD		YELLOW , RED , BROWN , RED , YELLOW
+    WORD		RED , BROWN , BROWN , BROWN , RED
+	WORD		0 , RED , BROWN , RED , 0
 
 
 ; *********************************************************************************
@@ -92,18 +92,16 @@ inicio:
 	MOV	R1, 0			; cenário de fundo número 0
      MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV	R7, 1			; valor a somar à coluna do boneco, para o movimentar
-	MOV R5, TECLA_ESQUERDA  ; guardar valor da tecla esquerda na memoria
-	MOV R8, TECLA_DIREITA	;  guardar valor da tecla direita na memoria
-	MOV R9, TECLA_BAIXO	;  guardar valor da tecla baixo na memoria	
-
+	MOV R10, TECLA_DIREITA
+	MOV R11, TECLA_ESQUERDA
 
 posição_meteorito:
-     MOV  R1, LINHA_METEORITO			; linha do meteoro #
-     MOV  R2, COLUNA_METEORITO		; coluna do meteoro #
-	MOV	R4, DEF_METEORITO		; endereço da tabela que define o meteoro #
+     MOV  R1, LINHA_METEORITO			; linha do boneco
+     MOV  R2, COLUNA_METEORITO		; coluna do boneco
+	MOV	R4, DEF_METEORITO		; endereço da tabela que define o boneco
 
 mostra_meteorito:
-	CALL	desenha_boneco		; desenha o meteoro a partir da tabela 
+	CALL	desenha_boneco		; desenha o boneco a partir da tabela 
 
 posição_nave:
      MOV  R1, LINHA_NAVE			; linha do boneco
@@ -115,16 +113,14 @@ mostra_nave:
 
 wait_tecla:				; neste ciclo espera-se até uma tecla ser premida
 	CALL	teclado			; leitura às tecla
-	;MOV R11, TECLA_ESQUERDA ; move o valor da tecla esquerda para o R11
-	CMP	R0, R5	; compara a tecla presionada com a tecla esquerda (4)
+	CMP	R0, R11
 	JNZ	testa_direita
 	MOV	R7, -1			; vai deslocar para a esquerda
 	JMP	ve_limites
 
 testa_direita:
-	;MOV R11, TE	; move o valor da tecla direita para o R11
-	CMP	R0, R8	; compara a tecla presionada com a tecla direita (6)
-	JNZ	move_down		; tecla que não interessa
+	CMP	R0, R10
+	JNZ	wait_tecla		; tecla que não interessa
 	MOV	R7, +1			; vai deslocar para a direita
 	
 ve_limites:
@@ -133,25 +129,13 @@ ve_limites:
 	CMP	R7, 0
 	JZ	wait_tecla		; se não é para movimentar o objeto, vai ler o teclado de novo
 
-move_down:
-	;MOV R11, [E_BAIXO]	;  move o valor da tecla baixo para o R11
-	CMP R0, R9	; compara a tecla presionada com a tecla baixo (9)
-	JNZ wait_tecla	; tecla que nao interessa
-	MOV R7, +1	; vai deslocar para baixo
-
 move_boneco:
 	CALL	apaga_boneco		; apaga o boneco na sua posição corrente
-
+	
 coluna_seguinte:
 	ADD	R2, R7			; para desenhar objeto na coluna seguinte (direita ou esquerda)
 
 	JMP	mostra_nave		; vai desenhar o boneco de novo
-
-linha_seguinte:
-	ADD R1, R7			; para desenhar o meteoro na linha seguinte (baixo)
-
-	JMP mostra_meteorito ; vai desenhar o meteoro de novo
-
 
 ; **********************************************************************
 ; DESENHA_BONECO - Desenha um boneco na linha e coluna indicadas
@@ -315,7 +299,7 @@ sai_testa_limites:
 ; Retorna: 	R0 - valor lido das colunas do teclado (0, 1, 2, 4, ou 8)	
 ; **********************************************************************
 teclado:
-; inicializa��es
+; inicializacoes
 	PUSH	R1
 	PUSH	R2
 	PUSH	R3
