@@ -10,32 +10,39 @@
 ; *********************************************************************************
 TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
+LINHA_TECLADO		EQU 8		; linha a testar (4ª linha, 1000b)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
 TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
 
-DEFINE_LINHA    			EQU 600AH      ; endereço do comando para definir a linha
-DEFINE_COLUNA   			EQU 600CH      ; endereço do comando para definir a coluna
-DEFINE_PIXEL    			EQU 6012H      ; endereço do comando para escrever um pixel
-APAGA_AVISO     			EQU 6040H      ; endereço do comando para apagar o aviso de nenhum cenário selecionado
-APAGA_ECRÃ	 				EQU 6002H      ; endereço do comando para apagar todos os pixels já desenhados
-SELECIONA_CENARIO_FUNDO 	EQU 6042H      ; endereço do comando para selecionar uma imagem de fundo
+DEFINE_LINHA    		EQU 600AH      ; endereço do comando para definir a linha
+DEFINE_COLUNA   		EQU 600CH      ; endereço do comando para definir a coluna
+DEFINE_PIXEL    		EQU 6012H      ; endereço do comando para escrever um pixel
+APAGA_AVISO     		EQU 6040H      ; endereço do comando para apagar o aviso de nenhum cenário selecionado
+APAGA_ECRÃ	 		EQU 6002H      ; endereço do comando para apagar todos os pixels já desenhados
+SELECIONA_CENARIO_FUNDO  EQU 6042H      ; endereço do comando para selecionar uma imagem de fundo
 
-LINHA        	EQU  28        ; linha do boneco (posição mais baixa)
-COLUNA			EQU  30        ; coluna do boneco (a meio do ecrã)
+LINHA_NAVE      		EQU  28        ; linha do boneco (posição mais baixa)
+COLUNA_NAVE				EQU  30        ; coluna do boneco (a meio do ecrã)
+LINHA_METEORITO      	EQU  30        ; linha do meteorito
+COLUNA_METEORITO		EQU  30        ; coluna do meteorito (a meio do ecrã)
 
 MIN_COLUNA		EQU  0		; número da coluna mais à esquerda que o objeto pode ocupar
 MAX_COLUNA		EQU  63        ; número da coluna mais à direita que o objeto pode ocupar
+MIN_LINHA		EQU	 0
+MAX_LINHA		EQU	 31
 ATRASO			EQU	400H		; atraso para limitar a velocidade de movimento do boneco
 
-LARGURA		EQU	5			; largura do boneco
-ALTURA		EQU 4			; altura do boneco
-RED			EQU	0FF00H		; cor vermelha
-BLACK		EQU 0F000H		; cor preta
-WHITE 		EQU 0FFFFH		; cor branca
-BLUE		EQU 0F3CDH		; cor azul
-GRAY		EQU 0FCCCH		; cor cinzenta
+LARGURA_NAVE		EQU	5			; largura da nave
+ALTURA_NAVE		EQU 4			; altura da nave
+LARGURA_METEORITO		EQU	4			; largura da METEORITO
+ALTURA_METEORITO		EQU 4			; altura da METEORITO
+RED		EQU	0FF00H		; cor vermelha
+BLACK	EQU 0F000H		; cor preta
+WHITE 	EQU 0FFFFH		; cor branca
+BLUE	EQU 0F3CDH		; cor azul
+GRAY	EQU 0FCCCH		; cor cinzenta
 ; *********************************************************************************
 ; * Dados 
 ; *********************************************************************************
@@ -48,12 +55,21 @@ SP_inicial:				; este é o endereço (1200H) com que o SP deve ser
 						; armazenado em 11FEH (1200H-2)
 							
 DEF_BONECO:					; tabela que define o boneco (cor, largura, altura, pixels)
-	WORD		LARGURA
-	WORD		ALTURA
+	WORD		LARGURA_NAVE
+	WORD		ALTURA_NAVE
 	WORD		0, 	0, 	BLUE, 0, 0
 	WORD		GRAY, 0, BLUE, 0, GRAY		
 	WORD		GRAY, GRAY, GRAY, GRAY, GRAY
     WORD		0, RED, 0, RED
+
+DEF_METEORITO:					; tabela que define o meteorito (cor, largura, altura, pixels)
+	WORD		LARGURA_METEORITO
+	WORD		ALTURA_METEORITO
+	WORD		RED, 0 , 0 , RED
+	WORD		RED, 0 , 0 , RED
+	WORD		0, RED , RED, 0
+    WORD		RED, 0 , 0 , RED
+
 
 
 ; *********************************************************************************
@@ -64,18 +80,26 @@ inicio:
 	MOV  SP, SP_inicial		; inicializa SP para a palavra a seguir
 						; à última da pilha
                             
-    MOV  [APAGA_AVISO], R1	; apaga o aviso de nenhum cenário selecionado (o valor de R1 não é relevante)
-    MOV  [APAGA_ECRÃ], R1	; apaga todos os pixels já desenhados (o valor de R1 não é relevante)
+     MOV  [APAGA_AVISO], R1	; apaga o aviso de nenhum cenário selecionado (o valor de R1 não é relevante)
+     MOV  [APAGA_ECRÃ], R1	; apaga todos os pixels já desenhados (o valor de R1 não é relevante)
 	MOV	R1, 0			; cenário de fundo número 0
-    MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
+     MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV	R7, 1			; valor a somar à coluna do boneco, para o movimentar
 	MOV R11, ATRASO
 	MOV R10, TECLA_DIREITA
 	MOV R9, TECLA_ESQUERDA
-     
+
+posição_meteorito:
+     MOV  R1, LINHA_METEORITO			; linha do boneco
+     MOV  R2, COLUNA_METEORITO		; coluna do boneco
+	MOV	R4, DEF_METEORITO		; endereço da tabela que define o boneco
+
+mostra_meteorito:
+	CALL	desenha_boneco		; desenha o boneco a partir da tabela 
+
 posição_boneco:
-    MOV R1, LINHA			; linha do boneco
-    MOV	R2, COLUNA		; coluna do boneco
+     MOV  R1, LINHA			; linha do boneco
+     MOV  R2, COLUNA		; coluna do boneco
 	MOV	R4, DEF_BONECO		; endereço da tabela que define o boneco
 
 mostra_boneco:
@@ -105,7 +129,7 @@ move_boneco:
 coluna_seguinte:
 	ADD	R2, R7			; para desenhar objeto na coluna seguinte (direita ou esquerda)
 
-	JMP	mostra_boneco		; vai desenhar o boneco de novo
+	JMP	mostra_meteorito		; vai desenhar o boneco de novo
 
 
 ; **********************************************************************
@@ -145,7 +169,6 @@ desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
 	MOV R5, LARGURA		; Repõe a largura 
 	SUB R6, 1			; menos uma linha para tratar
 	JNZ desenha_pixels	; continua até percorrer todas as linhas
-	
 	POP R7
 	POP R6
 	POP	R5
@@ -187,7 +210,7 @@ apaga_pixels:       		; desenha os pixels do boneco a partir da tabela
 	MOV R2, R7			; repoe a coluna
 	 ADD R1, 1			; proxima linha
 	 SUB R6, 1			; menos uma linha para tratar
-	 JNZ apaga_pixels	; continua ate percorrr toda a altura do objeto
+	 JNZ apaga_pixels
 
 	POP R7
 	POP R6
