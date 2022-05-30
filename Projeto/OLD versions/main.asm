@@ -5,19 +5,15 @@
 TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
-DISPLAY				EQU 0A000H 	; endereço do display
-MASCARA_DISPLAY		EQU 0FFFH	; isolar os 12 bits de menor peso, ao ler o valor do display
+
 TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
 TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
-TECLA_INC_DISPLAY 	EQU 3		; tecla para incrementar o valor do display
-TECLA_DEC_DISPLAY	EQU 7		; tecla para decrementar o valor do display
 
-POS_ROVER_X			EQU 1406H	; endereco de memoria da coluna do rover
-POS_ROVER_Y			EQU 1408H	; endereco de memoria da linha do rover
-POS_METEOR_X		EQU 140AH	; endereco de memoria da coluna do meteoro
-POS_METEOR_Y		EQU 140CH	; endereco de memoria da linha do meteoro
-DISPLAY_VAL			EQU	140EH	; endereco de memoria do valor do display
+POS_ROVER_X			EQU 1406H
+POS_ROVER_Y			EQU 1408H
+POS_METEOR_X		EQU 140AH
+POS_METEOR_Y		EQU 140CH
 
 DEFINE_LINHA    		EQU 600AH      ; endereço do comando para definir a linha
 DEFINE_COLUNA   		EQU 600CH      ; endereço do comando para definir a coluna
@@ -55,7 +51,7 @@ YELLOW	EQU 0FFF0H		; cor amarela #
 ; *********************************************************************************
 ; * Dados 
 ; *********************************************************************************
-	PLACE       1600H
+	PLACE       1000H
 pilha:
 	STACK 100H			; espaço reservado para a pilha 
 						; (200H bytes, pois são 100H words)
@@ -87,15 +83,13 @@ DEF_METEORITO:					; tabela que define o meteorito (cor, largura, altura, pixels
 PLACE   0                     ; o código tem de começar em 0000H
 inicio:
 	MOV  SP, SP_inicial		; inicializa SP para a palavra a seguir
-						; à última da pilha 
+						; à última da pilha
+                            
      MOV  [APAGA_AVISO], R1	; apaga o aviso de nenhum cenário selecionado (o valor de R1 não é relevante)
      MOV  [APAGA_ECRÃ], R1	; apaga todos os pixels já desenhados (o valor de R1 não é relevante)
 	MOV	R1, 0			; cenário de fundo número 0
      MOV  [SELECIONA_CENARIO_FUNDO], R1	; seleciona o cenário de fundo
 	MOV	R7, 0			; valor a somar à coluna do boneco, para o movimentar
-	MOV R1, 0H
-	MOV [DISPLAY], R1
-	MOV [DISPLAY_VAL], R1
 
 init_meteorito:
      MOV  R1, LINHA_METEORITO		; linha do meteorito
@@ -121,50 +115,28 @@ obtem_tecla:				; neste ciclo espera-se até uma tecla ser premida
 	CMP	R0, R8				; compara a tecla carregada com a tecla esquerda (4)
 	JNZ	testa_direita		; tecla que nao interessa
 	MOV	R7, -1				; vai deslocar para a esquerda
-	JMP	ve_limites_rover
+	JMP	ve_limites
 
 testa_direita:
-	MOV R8, TECLA_DIREITA		; valor da tecla direita
-	CMP	R0, R8			; compara a tecla carregada com a tecla direita (6)
+	MOV R9, TECLA_DIREITA		; valor da tecla direita
+	CMP	R0, R9			; compara a tecla carregada com a tecla direita (6)
 	JNZ	testa_baixo		; tecla que não interessa
 	MOV	R7, +1			; vai deslocar para a direita
-	JMP ve_limites_rover
+	JMP ve_limites
 
 testa_baixo:
-	MOV R8, TECLA_BAIXO		; valor da tecla baixo (meteoro)
-	CMP R0, R8			; compara a tecla carregada com a tecla baixo (9)
-	JNZ testa_display_baixo	; tecla que nao interessa
-	MOV R9, R10			; valor que a tecla a ser usado pelo teclado
-	CALL espera_nao_tecla
-	MOV R7, +1
-	JMP ve_limites_meteoro
+	MOV R10, TECLA_BAIXO		; valor da tecla baixo (meteoro)
+	CMP R0, R10			; compara a tecla carregada com a tecla baixo (9)
+	JNZ obtem_tecla		; tecla que nao interessa
 
-testa_display_baixo:
-	MOV R8, TECLA_DEC_DISPLAY
-	CMP R0, R8
-	JNZ testa_display_cima
-	MOV R9, R8
-	CALL espera_nao_tecla
-	MOV R7, -1
-	JMP ve_limites_display
-
-testa_display_cima:
-	MOV R8, TECLA_INC_DISPLAY
-	CMP R0, R8
-	JNZ obtem_tecla
-	MOV R9, R8
-	CALL espera_nao_tecla
-	MOV R7, +1
-	JMP ve_limites_display
-
-
-espera_nao_tecla:	
+espera_nao_tecla_meteoro:	
 	CALL teclado
 	CMP R0, -1
-	JNZ espera_nao_tecla
-	RET
+	JNZ espera_nao_tecla_meteoro
+	MOV R7, +1			; vai deslocar para baixo
+	JMP ve_limites_meteoro
 	
-ve_limites_rover:
+ve_limites:
 	CALL	testa_limites		; vê se chegou aos limites do ecrã e se sim força R7 a 0
 	CMP	R7, 0
 	JZ	obtem_tecla				; se não é para movimentar o objeto, vai ler o teclado de novo
@@ -175,12 +147,6 @@ ve_limites_meteoro:
 	CMP R7, 0
 	JZ obtem_tecla					; se não é para movimentar o objeto, vai ler o teclado de novo
 	JMP move_meteoro
-
-ve_limites_display:
-	CALL testa_limites_display
-	CMP R7, 0
-	JZ obtem_tecla
-	JMP altera_display
 
 move_rover:
 	MOV R1, [POS_ROVER_Y]
@@ -196,19 +162,10 @@ move_meteoro:
 	MOV R4, DEF_METEORITO
 	CALL apaga_boneco		; apaga o meteoro na sua posicao corrente
 	JMP linha_seguinte
-
-altera_display:
-	MOV R1, [DISPLAY_VAL]
-	ADD R1, R7
-	MOV R2, MASCARA_DISPLAY
-	AND R1, R2
-	MOV [DISPLAY_VAL], R1
-	MOV [DISPLAY], R1
-	JMP obtem_tecla
-
+	
 coluna_seguinte:
 	MOV R2, [POS_ROVER_X]
-	ADD R2, R7
+	ADD R2, R7	
 	MOV	[POS_ROVER_X], R2			; altera a coluna  do rover
 
 	CALL desenha_boneco		; desenha o rover na sua nova posicao
@@ -220,19 +177,6 @@ linha_seguinte:
 	MOV [POS_METEOR_Y], R1			; altera a linha do meteoro
 	CALL desenha_boneco		; desenha o meteoro na sua nova posica
 	JMP obtem_tecla
-
-; **************************************************************************
-; DISPLAY
-
-
-
-
-
-
-
-
-
-
 
 
 ; **********************************************************************
@@ -384,8 +328,7 @@ testa_limite_esquerdo:		; vê se o rover chegou ao limite esquerdo
 	CMP	R2, R5				
 	JZ	impede_movimento	; entre limites. Mantém o valor do R7
 	JMP sai_testa_limites
-testa_limite_direito:		; vê se o boneco chegou ao limite direito	
-	MOV R2, [POS_ROVER_X]	; obtem coluna em que o rover esta
+testa_limite_direito:		; vê se o boneco chegou ao limite direito
 	MOV R6, [DEF_BONECO]
 	ADD	R6, R2				; posição do extremo direito do boneco + 1
 	SUB R6, 1				; posicao do extremo direito do boneco
@@ -419,34 +362,6 @@ sai_testa_limites_meteoro:
 	POP R2
 	RET
 	
-testa_limites_display:
-	PUSH R2
-	PUSH R5
-	PUSH R6
-	CMP R7, 0
-	JGE testa_display_max
-	CMP R7, 0
-	JLE testa_display_min
-testa_display_max:
-	MOV R5, 64H
-	MOV R2, [DISPLAY_VAL]
-	CMP R2, R5
-	JZ impede_movimento_display
-	JMP sai_testa_limites_display
-testa_display_min:
-	MOV R5, 0H
-	MOV R2, [DISPLAY_VAL]
-	CMP R2, R5
-	JZ impede_movimento_display
-	JMP sai_testa_limites_display
-impede_movimento_display:
-	MOV R7, 0
-sai_testa_limites_display:
-	POP R6
-	POP R5
-	POP R2
-	RET
-
 ; **********************************************************************
 ; TECLADO - Faz uma leitura às teclas de uma linha do teclado e retorna o valor lido
 ; Argumentos:	R6 - linha a testar (em formato 1, 2, 4 ou 8)
@@ -462,7 +377,7 @@ teclado:
 	PUSH	R6
 	PUSH	R7
 	PUSH	R8
-	PUSH 	R9
+	PUSH	R9	
     MOV  R2, TEC_LIN   ; endereco do periferico das linhas
     MOV  R3, TEC_COL   ; endereco do periferico das colunas
     MOV  R5, MASCARA   ; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
@@ -474,7 +389,8 @@ ciclo:
     MOV R6, R1         ; escreve coluna a zero
     MOV R7, R1         ; escreve calculo posição linha a zero
     MOV R8, R1         ; escreve caluclo posição coluna a zero
-	MOV R9, 8
+    MOV R9, 8          ; para comparar com R0
+
 espera_tecla:          ; neste ciclo espera-se ate uma tecla ser premida
     MOVB [R2],R0       ; ler pertiferico de saída (linhas)
     MOVB R1, [R3]      ; ler do periferico de entrada (colunas)
@@ -508,7 +424,7 @@ tecla:
     AND R8,R5          ; elimina bits para além dos bits 0-3
     MOV R0,R8          ; saber que tecla foi pressionada
 end:	
-	POP R9
+	POP	R9
 	POP	R8
 	POP	R7
 	POP	R6
