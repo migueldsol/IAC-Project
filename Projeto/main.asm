@@ -33,7 +33,7 @@ MIN_LINHA		EQU	 0
 MAX_LINHA		EQU	 31
 MAX_LINHA_METEORO 	EQU 23
 
-ATRASO			EQU	0A200H		; atraso para limitar a velocidade de movimento do boneco
+ATRASO			EQU	0400H		; atraso para limitar a velocidade de movimento do boneco
 
 LARGURA_ROVER		EQU	5			; largura da ROVER
 ALTURA_ROVER		EQU 4			; altura da ROVER
@@ -63,9 +63,9 @@ DEF_BONECO:					; tabela que define o boneco (cor, largura, altura, pixels)
 	WORD		LARGURA_ROVER
 	WORD		ALTURA_ROVER
 	WORD		0, 	0, 	BLUE, 0, 0
-	WORD		GRAY, 0, BLUE, 0, GRAY		
+	WORD		0, GRAY, BLUE, GRAY, 0		
 	WORD		GRAY, GRAY, GRAY, GRAY, GRAY
-    WORD		0, RED, 0, RED
+    WORD		0, 0, RED, 0, 0
 
 DEF_METEORITO:					; tabela que define o meteorito (cor, largura, altura, pixels)
 	WORD		LARGURA_METEORITO
@@ -128,6 +128,7 @@ testa_baixo:
 	MOV R10, TECLA_BAIXO		; valor da tecla baixo (meteoro)
 	CMP R0, R10			; compara a tecla carregada com a tecla baixo (9)
 	JNZ obtem_tecla		; tecla que nao interessa
+
 espera_nao_tecla_meteoro:	
 	CALL teclado
 	CMP R0, -1
