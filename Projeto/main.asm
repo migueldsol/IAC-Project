@@ -1,3 +1,30 @@
+; *********************************************************************************
+; * IST-UL
+;
+; * Grupo: 4
+;
+; * Membros do Grupo:
+;		- Miguel Sol 102710
+;		- Joao Mestre 102779
+;		- Rodrigo Moreira 103440
+;
+; * Modulo:    projeto01.asm
+;
+; * Descrição: Este programa tem como objetivo reproduzir um esboco daquilo que
+;	sera um jogo no estilo space invaders.
+;	Nesta fase do projeto as seguintes features estao implementadas:
+;		-implementacao de um teclado
+;		-implementacao de um display (3 digitos) em hexadecimal
+;		-implementacao de um display grafico (media center)
+;		-imagem de fundo
+;		-design do rover
+;		-design do meteoro
+;		-movimento continuo do rover premindo a tecla 4 (esquerda) ou tecla 6 (direita)
+;		-movimento com efeito sonoro do meteoro clicando na tecla 9
+;		-incremento ou decremento do display hexadecimal premindo a tecla 3 
+;		ou 7 respetivamente
+;
+; *********************************************************************************
 
 ; *********************************************************************************
 ; * Constantes
@@ -224,8 +251,11 @@ linha_seguinte:
 	JMP obtem_tecla
 
 ; **********************************************************************
-;
-;
+; DESENHA_BONECO - Desenha um boneco na linha e coluna indicadas
+;			    com a forma e cor definidas na tabela indicada.
+; Argumentos:   R1 - linha
+;               R2 - coluna
+;               R4 - tabela que define o boneco
 ;
 ; **********************************************************************
 desenha_boneco:       		; desenha o boneco a partir da tabela
@@ -269,8 +299,11 @@ desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
 	RET
 
 ; **********************************************************************
-;
-;
+; APAGA_BONECO - Apaga um boneco na linha e coluna indicadas
+;			  com a forma definida na tabela indicada.
+; Argumentos:   R1 - linha
+;               R2 - coluna
+;               R4 - tabela que define o boneco
 ;
 ; **********************************************************************
 apaga_boneco:
@@ -340,8 +373,14 @@ ciclo_atraso:
 	RET
 
 ; **********************************************************************
-; 
+; TESTA_LIMITES - Testa se o rover chegou aos limites do ecrã e nesse caso
+;			   impede o movimento (força R7 a 0)
+; Argumentos:	R2 - coluna em que o objeto está
+;				R6 - largura do boneco
+;				R7 - sentido de movimento do boneco (valor a somar à coluna
+;					em cada movimento: +1 para a direita, -1 para a esquerda)
 ;
+; Retorna: 		R7 - 0 se já tiver chegado ao limite, inalterado caso contrário	
 ;
 ; **********************************************************************
 testa_limites:
@@ -356,8 +395,8 @@ lado_a_testar:
 testa_limite_esquerdo:			; vê se o rover chegou ao limite esquerdo
 	MOV	R5, MIN_COLUNA			; obtem o valor da coluna minima
 	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
-	CMP	R2, R5					
-	JZ	impede_movimento		; já nao pode mover mais
+	CMP	R2, R5					; compara a posicao do rover com o limite esquerdo
+	JZ	impede_movimento		; ja nao pode mover mais
 	JMP sai_testa_limites		; entre limites. Mantém o valor do R7
 testa_limite_direito:			; vê se o boneco chegou ao limite direito	
 	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
@@ -377,7 +416,16 @@ sai_testa_limites:
 	RET
 
 ; **********************************************************
+; TESTA_LIMITES_METEORO - Testa se o meteoro chegou a linha
+;				onde o rover pode estar 
+;				(linhas ocupadas pelo rover)	
+;				e nesse caso impede o movimento (força R7 a 0)
+; Argumentos:	R2 - linha em que o meteoro esta
+;				R6 - largura do meteoro
+;				R7 - sentido de movimento do meteoro (valor a somar a linha
+;				em cada movimento: +1 para baixo)
 ;
+; Retorna: 		R7 - 0 se já tiver chegado ao limite, inalterado caso contrário
 ;
 ; ******************************************************
 testa_limites_meteoro:
@@ -399,7 +447,11 @@ sai_testa_limites_meteoro:
 	RET
 
 ; ***********************************************************
+; TESTA_LIMITES_DISPLAY - Testa se o valor do display  esta 
+;				dentro dos limite estabelecidos (0-64 hexa)
+; Argumentos:	R2 - valor do display
 ;
+; Retorna: 		R7 - 0 se já tiver chegado ao limite, inalterado caso contrário
 ;
 ; **********************************************************
 testa_limites_display:
@@ -431,9 +483,9 @@ sai_testa_limites_display:
 	RET
 
 ; **********************************************************************
+; TECLADO - Faz uma leitura às teclas de todas linha do teclado e retorna o valor lido
 ;
-;
-;
+; Retorna: 	R0 - valor lido das colunas do teclado
 ;
 ; *************************************************************************
 teclado:
