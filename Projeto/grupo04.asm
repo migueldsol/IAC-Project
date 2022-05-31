@@ -53,6 +53,7 @@ DEFINE_PIXEL    		EQU 6012H      	; endereço do comando para escrever um pixel
 APAGA_AVISO     		EQU 6040H      	; endereço do comando para apagar o aviso de nenhum cenário selecionado
 APAGA_ECRÃ	 		EQU 6002H      		; endereço do comando para apagar todos os pixels já desenhados
 SELECIONA_CENARIO_FUNDO  EQU 6042H      ; endereço do comando para selecionar uma imagem de fundo
+TOCA_SOM				EQU 605AH      ; endereço do comando para tocar um som
 
 LINHA_ROVER      		EQU  28        	; linha do boneco (posição mais baixa)
 COLUNA_ROVER				EQU  30     ; coluna do boneco (a meio do ecrã)
@@ -149,22 +150,24 @@ obtem_tecla:				; neste ciclo espera-se até uma tecla ser premida
 	CMP R0, -1				; R0 = -1 se nenhuma tecla foi premida
 	JZ obtem_tecla
 	MOV R8, TECLA_ESQUERDA	; valor da tecla esquerda
-	CMP	R0, R8				; compara a tecla carregada com a tecla esquerda (4)
-	JNZ	testa_direita		; tecla que nao interessa
+	CMP	R0, R8				; compara a tecla premida com a tecla esquerda (4)
+	JNZ	testa_direita		; caso esta nao seja a esquerda (4), vamos testar a direita (6)
 	MOV	R7, -1				; vai deslocar para a esquerda
 	JMP	ve_limites_rover
 
 testa_direita:
 	MOV R8, TECLA_DIREITA	; valor da tecla direita
-	CMP	R0, R8				; compara a tecla carregada com a tecla direita (6)
-	JNZ	testa_baixo			; tecla que não interessa
+	CMP	R0, R8				; compara a tecla premida com a tecla direita (6)
+	JNZ	testa_baixo			; caso esta nao seja a direita (6), vamos testar a baixo (9)
 	MOV	R7, +1				; vai deslocar para a direita
 	JMP ve_limites_rover
 
 testa_baixo:
 	MOV R8, TECLA_BAIXO		; valor da tecla baixo (meteorito)
-	CMP R0, R8				; compara a tecla carregada com a tecla baixo (9)
-	JNZ testa_display_baixo	; tecla que nao interessa
+	CMP R0, R8				; compara a tecla premida com a tecla baixo (9)
+	JNZ testa_display_baixo	; caso esta nao seja a baixo (9), vamos testar a display_baixo (7)
+	MOV	R10, 0				; som com número 0
+	MOV [TOCA_SOM], R10		; comando para tocar o som
 	MOV R9, R8				; valor da tecla baixo (meteorito)
 	CALL espera_nao_tecla	; espera até que a tecla deixe de ser premida
 	MOV R7, +1				; vai deslocar para baixo
@@ -173,7 +176,7 @@ testa_baixo:
 testa_display_baixo:
 	MOV R8, TECLA_DEC_DISPLAY	; valor da tecla de descer o display
 	CMP R0, R8					; compara a tecla carregada com a tecla que decrementa (7)
-	JNZ testa_display_cima		; tecla que nao interessa
+	JNZ testa_display_cima		; caso esta nao seja a display_baixo (7), vamos testar a display_cima (3)
 	MOV R9, R8					; valor da tecla de descer o display
 	CALL espera_nao_tecla		; espera até que a tecla deixe de ser premida
 	MOV R7, -1					; vai decrementar o display
