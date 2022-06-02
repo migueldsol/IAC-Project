@@ -489,6 +489,7 @@ sai_testa_limites_display:
 ; TECLADO - Faz uma leitura às teclas de todas linha do teclado e retorna o valor lido
 ;
 ; Retorna: 	R0 - valor lido das colunas do teclado
+;           R0 = -1 no caso de nenhuma tecla ter sido lida
 ;
 ; *************************************************************************
 teclado:
