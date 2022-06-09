@@ -60,9 +60,10 @@ MIN_LINHA			EQU	 0		; numero da linha mais em cima
 MAX_LINHA			EQU	 31		; numero da linha mais em baixo
 MAX_LINHA_METEORO 	EQU 23		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
 DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
+DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
 DECREMENTACAO_DISPLAY	EQU 5	; valor que vai ser subtraido periodicamente
-HEXTODEC 			EQU 000AH
+HEXTODEC 			EQU 0AH
 
 ATRASO			EQU	0400H		; atraso para limitar a velocidade de movimento do boneco
 
@@ -128,21 +129,23 @@ tab:
 ; *********************************************************************************
 PLACE   0                     ; o codigo tem de comecar em 0000H
 inicio:
-	MOV  SP, SP_inicial						; inicializa SP para a palavra a seguir
-											; a ultima da pilha 
-	MOV  BTE, tab			; inicializa BTE (registo de Base da Tabela de Exce��es)
+	MOV  SP, SP_inicial						; inicializa SP para a palavra a seguir a ultima da pilha 
+	MOV  BTE, tab							; inicializa BTE (registo de Base da Tabela de Exce��es)
     MOV  [APAGA_AVISO], R1					; apaga o aviso de nenhum cenario selecionado (o valor de R1 nao e relevante)
     MOV  [APAGA_ECRA], R1					; apaga todos os pixels ja desenhados (o valor de R1 nao e relevante)
 	MOV	R1, 0								; cenario de fundo numero 0
     MOV  [SELECIONA_CENARIO_FUNDO], R1		; seleciona o cenario de fundo
 	MOV	R7, 0								; valor a somar a coluna do boneco, para o movimentar
-	MOV R1, DISPLAY_MAX			
-	MOV [DISPLAY], R1					; reinicia o display
-	MOV [DISPLAY_VAL], R1					; reinicia o valor do display
-	EI0					; permite interrupções 0
-	EI1					; permite interrupções 1
-	EI2					; permite interrupções 2
-	EI					; permite interrupções (geral)
+	EI0										; permite interrupções 0
+	EI1										; permite interrupções 1
+	EI2										; permite interrupções 2
+	EI										; permite interrupções (geral)
+
+init_display:
+	MOV R1, DISPLAY_MAX_INIT
+	MOV R2, DISPLAY_MAX		
+	MOV [DISPLAY], R1						; reinicia o display
+	MOV [DISPLAY_VAL], R2					; reinicia o valor do display
 
 init_meteoro:
      MOV  R1, LINHA_METEORO			; linha do meteoro
@@ -229,7 +232,6 @@ rot_int_2:
 	MOV R1, [DISPLAY_VAL]
 	CALL testa_limites_display
 	CALL HEX_TO_DEC
-	MOV [DISPLAY_VAL], R1		; altera o valor guardado do display
 	MOV [DISPLAY], R1			; altera o display
 	POP R1
 	RFE					; Return From Exception (diferente do RET)
@@ -242,17 +244,39 @@ rot_int_2:
 HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H) para decimal
 	PUSH R0 					; converte o numero em R1, e deixa-o em R1
 	PUSH R2
-
 	MOV  R0, HEXTODEC
 	MOV  R2, R1
 	DIV  R1, R0 				; coloca o algarismo das dezenas em decimal em R1
 	MOD  R2, R0 				; coloca o algarismo das unidades em decimal em R2
-
 	SHL  R1, 4
 	OR   R1, R2					; coloca o numero em decimal em R1
-
 	POP  R2
 	POP  R0
+	RET
+
+; ***********************************************************
+; TESTA_LIMITES_DISPLAY - Testa se o valor do display  esta 
+;				dentro dos limite estabelecidos (0-64 hexa)
+; Argumentos:	R1 - valor do display
+;
+; Retorna: 		R7 - 0 se ja tiver chegado ao limite, inalterado caso contrario
+;
+; **********************************************************
+testa_limites_display:
+	PUSH R5
+	PUSH R6
+testa_display_min:
+	MOV R5, DISPLAY_MIN					; valor minimo do display
+	SUB R1, DECREMENTACAO_DISPLAY		; valor atual do display
+	CMP R1, R5
+	JZ impede_movimento_display			; ja nao pode diminuir mais
+	MOV [DISPLAY_VAL], R1		; altera o valor guardado do display
+	JMP sai_testa_limites_display
+impede_movimento_display:
+	ADD R1,DECREMENTACAO_DISPLAY		; impede a alteracao
+sai_testa_limites_display:
+	POP R6
+	POP R5
 	RET
 
 ; **********************************************************************
@@ -488,30 +512,6 @@ sai_testa_limites_meteoro:
 	POP	R6
 	POP	R5
 	POP R2
-	RET
-
-; ***********************************************************
-; TESTA_LIMITES_DISPLAY - Testa se o valor do display  esta 
-;				dentro dos limite estabelecidos (0-64 hexa)
-; Argumentos:	R1 - valor do display
-;
-; Retorna: 		R7 - 0 se ja tiver chegado ao limite, inalterado caso contrario
-;
-; **********************************************************
-testa_limites_display:
-	PUSH R5
-	PUSH R6
-testa_display_min:
-	MOV R5, DISPLAY_MIN					; valor minimo do display
-	SUB R1, DECREMENTACAO_DISPLAY		; valor atual do display
-	CMP R1, R5
-	JZ impede_movimento_display			; ja nao pode diminuir mais
-	JMP sai_testa_limites_display
-impede_movimento_display:
-	ADD R1,DECREMENTACAO_DISPLAY		; impede a alteracao
-sai_testa_limites_display:
-	POP R6
-	POP R5
 	RET
 
 ; **********************************************************************
