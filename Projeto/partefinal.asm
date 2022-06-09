@@ -85,7 +85,7 @@ YELLOW	EQU 0FFF0H		; cor amarela
 ; * Dados 
 ; *********************************************************************************
 PLACE 1400H
-
+TECLA_MOVIMENTO:  WORD	0000H; 1 se for para a direita -1 para a esquerda	
 POS_ROVER_X:	WORD	0000H; endereco de memoria da coluna do rover
 POS_ROVER_Y:	WORD	0000H; endereco de memoria da linha do rover
 POS_METEORO_X:	WORD	0000H; endereco de memoria da coluna do meteoro
@@ -456,15 +456,16 @@ testa_limites:
 	PUSH	R5
 	PUSH	R6
 lado_a_testar:
-	CMP	R7, 0					
-	JGE	testa_limite_direito	; se se for deslocar para a direita
-	CMP R7, 0
-	JLE	testa_limite_esquerdo	; se se for deslocar para a esquerda
+	CMP	R0, TECLA_DIREITA					
+	JZ	testa_limite_direito	; se se for deslocar para a direita
+	CMP R0, TECLA_ESQUERDA
+	JZ	testa_limite_esquerdo	; se se for deslocar para a esquerda
 testa_limite_esquerdo:			; vê se o rover chegou ao limite esquerdo
 	MOV	R5, MIN_COLUNA			; obtem o valor da coluna minima
 	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
 	CMP	R2, R5					; compara a posicao do rover com o limite esquerdo
 	JZ	impede_movimento		; ja nao pode mover mais
+	MOV R7, -1
 	JMP sai_testa_limites		; entre limites, mantem o valor do R7
 testa_limite_direito:			; ve se o boneco chegou ao limite direito	
 	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
@@ -474,6 +475,7 @@ testa_limite_direito:			; ve se o boneco chegou ao limite direito
 	MOV	R5, MAX_COLUNA			; obtem o valor da coluna maxima
 	CMP	R6, R5
 	JZ impede_movimento			; ja nao pode mover mais
+	MOV R7, 1
 	JMP	sai_testa_limites		; entre limites, mantem o valor do R7
 impede_movimento:
 	MOV	R7, 0					; impede o movimento, forçando R7 a 0
@@ -569,6 +571,11 @@ tecla:
     ADD R8,R7          	; vai adicionar a coluna o numero de linhas
     AND R8,R5          	; elimina bits para alem dos bits 0-3
     MOV R0,R8          	; saber que tecla foi pressionada
+	JMP end
+fim_sem_tecla:
+	MOV R0, -1			; nenhuma tecla premida
+	JMP end
+
 end:	
 	POP R9
 	POP	R8
@@ -580,6 +587,4 @@ end:
 	POP	R1
 	RET	
 
-fim_sem_tecla:
-	MOV R0, -1			; nenhuma tecla premida
-	JMP end
+
