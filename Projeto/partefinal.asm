@@ -295,7 +295,9 @@ Rover:
 obtem_tecla:				; neste ciclo espera-se até uma tecla ser premida
 	CMP R0, -1				; R0 = -1 se nenhuma tecla foi premida
 	JZ exit_rover
-	call testa_limites		;retorna 1(direita),-1(esquerda),0 não existe movimento
+	CALL testa_limites		;retorna 1(direita),-1(esquerda),0 não existe movimento
+	CMP R1,0
+	JZ exit_rover
 
 move_rover:
 	MOV R1, [POS_ROVER_Y]		; guarda a posicao Y do rover
@@ -460,6 +462,8 @@ lado_a_testar:
 	JZ	testa_limite_direito	; se se for deslocar para a direita
 	CMP R0, TECLA_ESQUERDA
 	JZ	testa_limite_esquerdo	; se se for deslocar para a esquerda
+	MOV R1, 0
+	JMP sai_testa_limites
 testa_limite_esquerdo:			; vê se o rover chegou ao limite esquerdo
 	MOV	R5, MIN_COLUNA			; obtem o valor da coluna minima
 	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
