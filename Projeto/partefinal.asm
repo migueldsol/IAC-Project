@@ -69,8 +69,31 @@ ATRASO			EQU	0400H		; atraso para limitar a velocidade de movimento do boneco
 
 LARGURA_ROVER		EQU	5		; largura do ROVER
 ALTURA_ROVER		EQU 4		; altura do ROVER
-LARGURA_METEORO		EQU	5		; largura do meteoro
-ALTURA_METEORO		EQU 5		; altura do meteoro
+
+LARGURA_FRAGMENTO1	EQU 1		; largura do fragmento 1
+ALTURA_FRAGMENTO1	EQU 1		; altura do fragmento 1
+LARGURA_FRAGMENTO2	EQU 2		; largura do fragmento 2
+ALTURA_FRAGMENTO2	EQU 2		; altura do fragmento 2
+
+LARGURA_METEORO1	EQU 3		; largura do meteoro nivel 1
+ALTURA_METEORO1		EQU 3		; altura do meteoro nivel 1
+LARGURA_METEORO2	EQU 4		; largura do meteoro nivel 2
+ALTURA_METEORO2		EQU 4		; altura do meteoro nivel 2
+LARGURA_METEORO3	EQU	5		; largura do meteoro nivel 3
+ALTURA_METEORO3		EQU 5		; altura do meteoro nivel 3
+
+LARGURA_MOEDA1		EQU 3		; largura do moeda nivel 1
+ALTURA_MOEDA1		EQU 3		; altura do moeda nivel 1
+LARGURA_MOEDA2		EQU 4		; largura do moeda nivel 2
+ALTURA_MOEDA2		EQU 4		; altura do moeda nivel 2
+LARGURA_MOEDA3		EQU	5		; largura do moeda nivel 3
+ALTURA_MOEDA3		EQU 5		; altura do moeda nivel 3
+
+LARGURA_EXPLOSAO	EQU 5		; largura da explosao
+ALTURA_EXPLOSAO		EQU 5		; altura da explosao
+
+LARGURA_MISSIL		EQU 1		; largura do missil
+ALTURA_MISSIL		EQU 1		; altura do missil
 
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
@@ -80,12 +103,14 @@ GRAY	EQU 0FCCCH		; cor cinzenta
 GREEN	EQU 0F0F0H		; cor verde
 BROWN	EQU 0F840H		; cor castanha 
 YELLOW	EQU 0FFF0H		; cor amarela 
+MUSTARD	EQU 0FFD5H		; cor mostarda
+DRKBLUE EQU 0F16BH		; cor azul escuro
 
 ; *********************************************************************************
 ; * Dados 
 ; *********************************************************************************
 PLACE 1400H
-TECLA_MOVIMENTO:  WORD	0000H; 1 se for para a direita -1 para a esquerda	
+TECLA_MOVIMENTO:WORD	0000H; 1 se for para a direita -1 para a esquerda	
 POS_ROVER_X:	WORD	0000H; endereco de memoria da coluna do rover
 POS_ROVER_Y:	WORD	0000H; endereco de memoria da linha do rover
 POS_METEORO_X:	WORD	0000H; endereco de memoria da coluna do meteoro
@@ -109,14 +134,78 @@ DEF_ROVER:				; tabela que define o rover (cor, largura, altura, pixels)
 	WORD		GRAY, GRAY, GRAY, GRAY, GRAY
     WORD		0, 0, RED, 0, 0
 
-DEF_METEORO:			; tabela que define o meteoro (cor, largura, altura, pixels)
-	WORD		LARGURA_METEORO
-	WORD		ALTURA_METEORO
+DEF_FRAGMENTO_1:			; tabela que define o fragmento 1 (cor, largura, altura, pixels)
+	WORD		LARGURA_FRAGMENTO1
+	WORD		ALTURA_FRAGMENTO1
+	WORD		GRAY
+
+DEF_FRAGMENTO_2:			; tabela que define o fragmento 2 (cor, largura, altura, pixels)
+	WORD		LARGURA_FRAGMENTO2
+	WORD		ALTURA_FRAGMENTO2
+	WORD		GRAY, GRAY
+	WORD		GRAY, GRAY
+
+DEF_METORO_1:			; tabela que define o meteoro nivel 1 (cor, largura, altura, pixels)
+	WORD		LARGURA_METEORO1
+	WORD		ALTURA_METEORO1
+	WORD		YELLOW, 0, YELLOW
+	WORD		RED, BROWN, RED
+	WORD		0, BROWN, 0
+
+DEF_METEORO_2:			; tabela que define o meteoro nivel 2 (cor, largura, altura, pixels)
+	WORD		LARGURA_METEORO2
+	WORD		ALTURA_METEORO2
+	WORD		YELLOW, 0, 0, YELLOW
+	WORD		YELLOW, RED, RED, YELLOW
+	WORD		RED, BROWN, BROWN, RED
+	WORD		0, BROWN, BROWN, 0
+
+DEF_METEORO_3:			; tabela que define o meteoro nivel 3 (cor, largura, altura, pixels)
+	WORD		LARGURA_METEORO3
+	WORD		ALTURA_METEORO3
 	WORD		YELLOW , 0 , YELLOW , 0 , YELLOW
 	WORD		0 , YELLOW , RED , YELLOW , 0
 	WORD		YELLOW , RED , BROWN , RED , YELLOW
     WORD		RED , BROWN , BROWN , BROWN , RED
 	WORD		0 , RED , BROWN , RED , 0
+
+DEF_MOEDA_1:			; tabela que define a moeda nivel 1 (cor, largura, altura, pixels)
+	WORD		LARGURA_MOEDA1
+	WORD		ALTURA_MOEDA1
+	WORD		0, YELLOW, 0
+	WORD		YELLOW, MUSTARD, YELLOW
+	WORD		0, YELLOW, 0	
+
+DEF_MOEDA_2:			; tabela que define a moeda nivel 2 (cor, largura, altura, pixels)
+	WORD		LARGURA_MOEDA2
+	WORD		ALTURA_MOEDA2
+	WORD		0, YELLOW, YELLOW, 0
+	WORD		YELLOW, WHITE, MUSTARD, YELLOW
+	WORD		YELLOW, MUSTARD, YELLOW, YELLOW
+	WORD		0, YELLOW, YELLOW, 0
+
+DEF_MOEDA_3:			; tabela que define a moeda nivel 3 (cor, largura, altura, pixels)
+	WORD		LARGURA_MOEDA3
+	WORD		ALTURA_MOEDA3
+	WORD		0, YELLOW, YELLOW, YELLOW, 0
+	WORD		YELLOW, WHITE, MUSTARD, MUSTARD, YELLOW
+	WORD		YELLOW, MUSTARD, YELLOW, YELLOW, YELLOW
+	WORD		YELLOW, MUSTARD, YELLOW, YELLOW, YELLOW
+	WORD		0, YELLOW, YELLOW, YELLOW, 0
+
+DEF_EXPLOSAO:			; tabela que define a explosao (cor, largura, altura, pixels)
+	WORD		LARGURA_EXPLOSAO
+	WORD		ALTURA_EXPLOSAO
+	WORD		0, YELLOW, 0, YELLOW, 0
+	WORD		YELLOW, BROWN, RED, BROWN, YELLOW
+	WORD		0, RED, BLUE, RED, 0
+	WORD		YELLOW, BROWN, RED, BROWN, YELLOW
+	WORD		0, YELLOW, 0, YELLOW, 0
+
+DEF_MISSIL:				; tabela que define o missil (cor, largura, altura, pixels)
+	WORD		LARGURA_MISSIL
+	WORD		ALTURA_MISSIL
+	WORD		DRKBLUE
 
 tab:
 	WORD rot_int_0			; rotina de atendimento da interrupção 0
@@ -152,7 +241,9 @@ init_meteoro:
      MOV  R2, COLUNA_METEORO		; coluna do meteoro
 	 MOV  [POS_METEORO_X], R2		; poe a coluna do meteoro na memoria
 	 MOV  [POS_METEORO_Y], R1		; poe a linha do meteoro na memoria
-	 MOV  R4, DEF_METEORO			; define o meteoro
+	 MOV  R4, DEF_METEORO_3
+	
+				; define o meteoro
 	 CALL desenha_boneco
 
 init_ROVER:
@@ -196,7 +287,7 @@ main:
 ;move_meteoro:
 ;	MOV R1, [POS_METEORO_Y]		; guarda a posicao Y do rover
 ;	MOV R2, [POS_METEORO_X]		; guarda a posicao X do rover
-;	MOV R4, DEF_METEORO		; guarda a definicao do rover
+;	MOV R4, DEF_METEORO_3		; guarda a definicao do rover
 ;	CALL apaga_boneco			; apaga o meteoro na sua posicao corrente
 ;	JMP linha_seguinte	
 
