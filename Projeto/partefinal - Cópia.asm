@@ -38,8 +38,6 @@ MASCARA_DISPLAY		EQU 0FFFH	; isolar os 12 bits de menor peso, ao ler o valor do 
 TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
 TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
-TECLA_INC_DISPLAY 	EQU 3		; tecla para incrementar o valor do display
-TECLA_DEC_DISPLAY	EQU 7		; tecla para decrementar o valor do display
 
 DEFINE_LINHA    		EQU 600AH      	; endereco do comando para definir a linha
 DEFINE_COLUNA   		EQU 600CH      	; endereco do comando para definir a coluna
@@ -51,15 +49,11 @@ TOCA_SOM				EQU 605AH      	; endereco do comando para tocar um som
 
 LINHA_ROVER      	EQU  28     ; linha do boneco (posicao mais baixa)
 COLUNA_ROVER		EQU  30     ; coluna do boneco (a meio do ecra)
-LINHA_METEORO      	EQU  2      ; linha do meteoro 
-COLUNA_METEORO		EQU  30     ; coluna do meteoro (a meio do ecra) 
 
 MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
 MAX_COLUNA			EQU  63     ; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 31		; numero da linha mais em baixo
-MAX_LINHA_METEORO 	EQU 23		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
-DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
 DECREMENTACAO_DISPLAY	EQU 5	; valor que vai ser subtraido periodicamente
@@ -212,6 +206,17 @@ tab:
 	WORD rot_int_1			; rotina de atendimento da interrupção 1
 	WORD rot_int_2			; rotina de atendimento da interrupção 2
 
+evento_int:
+	WORD 0				; se 1, indica que a interrupcao 0 ocorreu
+	WORD 0				; se 1, indica que a interrupcao 1 ocorreu
+	WORD 0				; se 1, indica que a interrupcao 2 ocorreu
+	WORD 0				; se 1, indica que a interrupcao 3 ocorreu
+                              
+linha_meteoro:
+	WORD 0				; linha em que a 1� barra est�
+	WORD 0				; linha em que a 2� barra est�
+	WORD 0				; linha em que a 3� barra est�
+	WORD 0				; linha em que a 4� barra est�
 
 ; *********************************************************************************
 ; * Codigo
@@ -255,75 +260,63 @@ init_ROVER:
 main:
 	CALL Teclado			; leitura às tecla
 	CALL Rover				; Move Rover caso tecla tenha sido premida
+	CALL anima_displays
+	CALL anima_meteoro
 	JMP main
 
-;testa_display_baixo:
-;	CMP R0, R8					; compara a tecla premida com a tecla que decrementa (7)
-;	JNZ testa_display_cima		; caso esta nao seja a display_baixo (7), vamos testar a display_cima (3)
-;	MOV R9, R8					; valor da tecla de descer o display
-;	CALL espera_nao_tecla		; espera até que a tecla deixe de ser premida
-;	MOV R7, -1					; vai decrementar o display
-;	JMP ve_limites_display	
-
-;testa_display_cima:
-;	MOV R8, TECLA_INC_DISPLAY	; valor da tecla de subir o display
-;	CMP R0, R8					; compara a tecla premida com a tecla que incremeneta (3)
-;	JNZ obtem_tecla				; tecla nao interessa
-;	MOV R9, R8					; valor da tecla que sobe o display
-;	CALL espera_nao_tecla		; espera até que a tecla deixe de ser premida
-;	MOV R7, +1					; vai incrementar o display
-;	JMP ve_limites_display
-
-	
-
-;ve_limites_display:
-;	CALL testa_limites_display		; ve se chegou aos limites do display e se sim forca R7 a 0
-;	CMP R7, 0
-;	JZ obtem_tecla					; se nao e para incremenetar o display, vai ler o teclado de novo
-;	JMP altera_display
-
-;move_meteoro:
-;	MOV R1, [POS_METEORO_Y]		; guarda a posicao Y do rover
-;	MOV R2, [POS_METEORO_X]		; guarda a posicao X do rover
-;	MOV R4, DEF_METEORO_3		; guarda a definicao do rover
-;	CALL apaga_boneco			; apaga o meteoro na sua posicao corrente
-;	JMP linha_seguinte	
-
-
-;linha_seguinte:
-;	MOV R1, [POS_METEORO_Y]
-;	ADD R1, R7					; calcula a nova linha do meteoro
-;	MOV [POS_METEORO_Y], R1		; altera a linha do meteoro
-;	CALL desenha_boneco			; desenha o meteoro na sua nova posica
-;	JMP obtem_tecla
-; **********************************************************************
-; ROT_INT_0 - 	Rotina de atendimento da interrupção 0
-;			Faz com que os meteoros se movam uma casa para baixo 
-;			periodicamente
-; **********************************************************************
-rot_int_0:
-	RFE					; Return From Exception (diferente do RET)
 
 ; **********************************************************************
-; ROT_INT_1 -	Rotina de atendimento da interrup��o 1
-;			Faz com que a bala se mova uma casa para cima periodicamente
+; Rotinas cooperativas 
 ; **********************************************************************
-rot_int_1:
-	RFE					; Return From Exception (diferente do RET)
+
 
 ; **********************************************************************
-; ROT_INT_2 -	Rotina de atendimento da interrupcao 2
-;			Faz com que o display va decrementando 5 valores
-;			periodicamente
+; ANIMA_METEORO - Rotina cooperativa que desenha e faz descer o meteoro
+;			 numa dada coluna. Se chegar ao fundo, passa ao topo.
+;			 A linha em que o byte � escrito � guardada na vari�vel linha_barra, que �
+;			 uma tabela de quatro vari�veis simples, uma para cada barra
+; Argumentos: R3 - N� da barra (0 a 3)
 ; **********************************************************************
-rot_int_2:
+anima_meteoro:
 	PUSH R1
-	MOV R1, [DISPLAY_VAL]
-	CALL testa_limites_display
-	CALL HEX_TO_DEC
-	MOV [DISPLAY], R1			; altera o display
-	POP R1
-	RFE					; Return From Exception (diferente do RET)
+	PUSH R2
+	PUSH R3
+	PUSH R4
+	PUSH R5
+	PUSH R6
+	MOV  R6, R3			; copia de R3 (para nao destruir R3)
+	SHL  R6, 1			; multiplica o numero da barra por 2 (porque a linha_barra � uma tabela de words)
+
+	MOV  R5, evento_int
+	MOV  R2, [R5+R6]		; valor da vari�vel que diz se houve uma interrup��o com o mesmo n�mero da coluna
+	CMP  R2, 0
+	JZ   sai_anima_meteoro	; se nao houve interrup��o, vai-se embora
+	MOV  R2, 0
+	MOV  [R5+R6], R2		; coloca a zero o valor da vari�vel que diz se houve uma interrup��o (consome evento)
+
+	MOV  R5, linha_barra
+	MOV  R2, [R5+R6]		; linha em que a barra est�
+	SHL  R3, 3			; multiplica o n� da barra por 8 para dar a coluna onde desenhar o byte
+	MOV  R1, 0			; para apagar a barra
+	CALL escreve_byte		; apaga a barra do ecr�
+	ADD  R2, 1			; passa � linha abaixo
+	MOV  R4, N_LINHAS
+	CMP  R2, R4			; j� estava na linha do fundo?
+	JLT  escreve
+	MOV  R2, 0			; volta ao topo do ecr�
+escreve:
+	MOV  [R5+R6], R2		; atualiza na tabela a linha em que esta barra est�
+	MOV  R1, BARRA			; valor da barra
+	CALL escreve_byte		; escreve a barra na nova linha
+sai_anima_meteoro:
+	POP  R6
+	POP  R5
+	POP  R4
+	POP  R3
+	POP  R2
+	POP  R1
+	RET
+
 
 ; **********************************************************************
 ; HEX_TO_DEC - changes the number in hexadecimal to decimal
@@ -517,21 +510,6 @@ escreve_pixel:
 
 
 ; **********************************************************************
-; ATRASO - Executa um ciclo para implementar um atraso.
-; Argumentos:   R11 - valor que define o atraso
-;
-; **********************************************************************
-atraso:
-	PUSH	R11
-	MOV R11, ATRASO
-ciclo_atraso:
-	
-	SUB	R11, 1
-	JNZ	ciclo_atraso
-	POP	R11
-	RET
-
-; **********************************************************************
 ; TESTA_LIMITES - Testa se o rover chegou aos limites do ecra e nesse caso
 ;			   impede o movimento (forca R7 a 0)
 ; Argumentos:	R2 - coluna em que o objeto está
@@ -681,3 +659,57 @@ end:
 	RET	
 
 
+; **********************************************************************
+; Rotinas de interrupcao
+; **********************************************************************
+
+
+; **********************************************************************
+; ROT_INT_0 - 	Rotina de atendimento da interrupção 0
+;			Faz com que os meteoros se movam uma casa para baixo 
+;			periodicamente
+; **********************************************************************
+rot_int_0:
+	RFE					; Return From Exception (diferente do RET)
+
+; **********************************************************************
+; ROT_INT_1 -	Rotina de atendimento da interrup��o 1
+;			Faz com que a bala se mova uma casa para cima periodicamente
+; **********************************************************************
+rot_int_1:
+	RFE					; Return From Exception (diferente do RET)
+
+; **********************************************************************
+; ROT_INT_2 -	Rotina de atendimento da interrupcao 2
+;			Faz com que o display va decrementando 5 valores
+;			periodicamente
+; **********************************************************************
+rot_int_2:
+	PUSH R1
+	MOV R1, [DISPLAY_VAL]
+	CALL testa_limites_display
+	CALL HEX_TO_DEC
+	MOV [DISPLAY], R1			; altera o display
+	POP R1
+	RFE					; Return From Exception (diferente do RET)
+
+
+; **********************************************************************
+; Rotinas Auxiliares
+; **********************************************************************
+
+
+; **********************************************************************
+; ATRASO - Executa um ciclo para implementar um atraso.
+; Argumentos:   R11 - valor que define o atraso
+;
+; **********************************************************************
+atraso:
+	PUSH	R11
+	MOV R11, ATRASO
+ciclo_atraso:
+	
+	SUB	R11, 1
+	JNZ	ciclo_atraso
+	POP	R11
+	RET
