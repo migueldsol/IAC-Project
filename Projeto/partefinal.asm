@@ -33,13 +33,14 @@ TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 DISPLAY				EQU 0A000H 	; endereço do display
+DISPLAY_INCREASE	EQU 0005H	; value that the interruption will make the display increase
+UPDATE_DISPLAY_ON	EQU 0001H	; activate the update_display routine
+UPDATE_DISPLAY_OFF	EQU 0000H	; activate the update_display routine
 MASCARA_DISPLAY		EQU 0FFFH	; isolar os 12 bits de menor peso, ao ler o valor do display
 
 TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
 TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
-TECLA_INC_DISPLAY 	EQU 3		; tecla para incrementar o valor do display
-TECLA_DEC_DISPLAY	EQU 7		; tecla para decrementar o valor do display
 
 DEFINE_LINHA    		EQU 600AH      	; endereco do comando para definir a linha
 DEFINE_COLUNA   		EQU 600CH      	; endereco do comando para definir a coluna
@@ -110,12 +111,15 @@ DRKBLUE EQU 0F16BH		; cor azul escuro
 ; * Dados 
 ; *********************************************************************************
 PLACE 1400H
-TECLA_MOVIMENTO:WORD	0000H; 1 se for para a direita -1 para a esquerda	
 POS_ROVER_X:	WORD	0000H; endereco de memoria da coluna do rover
 POS_ROVER_Y:	WORD	0000H; endereco de memoria da linha do rover
 POS_METEORO_X:	WORD	0000H; endereco de memoria da coluna do meteoro
 POS_METEORO_Y:	WORD	0000H; endereco de memoria da linha do meteoro
 DISPLAY_VAL:	WORD	0000H; endereco de memoria do valor do display
+INC_DEC_DISPLAY: WORD	0000H; endereço de memória de valor a acrescentar ao display
+INTERRUPCAO_METEORO: WORD 0000H; endereço de memória do valor de ativação do movimento do meteoro
+INTERRUPCAO_MISSIL:  WORD 0000H; endereço de memória do valor de ativação do movimento do missíl
+INTERRUPCAO_ENERGIA: WORD 0000H; endereço de memória do valor de ativação da redução da energia
 
 PLACE 1000H
 
@@ -255,6 +259,7 @@ init_ROVER:
 main:
 	CALL Teclado			; leitura às tecla
 	CALL Rover				; Move Rover caso tecla tenha sido premida
+	CALL UPDATE_DISPLAY
 	JMP main
 
 ;testa_display_baixo:
@@ -313,17 +318,41 @@ rot_int_1:
 
 ; **********************************************************************
 ; ROT_INT_2 -	Rotina de atendimento da interrupcao 2
-;			Faz com que o display va decrementando 5 valores
-;			periodicamente
+;			Records in the memory the value 1 and the value of how much
+;			the display will increase (5%)
 ; **********************************************************************
 rot_int_2:
 	PUSH R1
+	PUSH R2
+	MOV R1, UPDATE_DISPLAY_ON;
+	MOV [INTERRUPCAO_ENERGIA], R1;
+	MOV R2, DISPLAY_INCREASE;
+	MOV [INC_DEC_DISPLAY], R2
+	POP R2
+	POP R1
+	RFE					; Return From Exception (diferente do RET)
+
+; ************************************************************************
+; UPDATE_DISPLAY - updates the display by increasing 5% or decreasing 10%
+;
+; ************************************************************************
+UPDATE_DISPLAY:
+	PUSH R1
+	PUSH R2
+	PUSH R3
+	MOV R2,[INTERRUPCAO_ENERGIA]
+	CMP R2,0
+	JZ EXIT_UPDATE_DISPLAY
 	MOV R1, [DISPLAY_VAL]
 	CALL testa_limites_display
 	CALL HEX_TO_DEC
 	MOV [DISPLAY], R1			; altera o display
+
+EXIT_UPDATE_DISPLAY:
+	POP R3
+	POP R2
 	POP R1
-	RFE					; Return From Exception (diferente do RET)
+	RET
 
 ; **********************************************************************
 ; HEX_TO_DEC - changes the number in hexadecimal to decimal
@@ -352,13 +381,18 @@ HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H) para decimal
 ;
 ; **********************************************************
 testa_limites_display:
+	PUSH R2
 	PUSH R5
 	PUSH R6
+	MOV R2,[INC_DEC_DISPLAY]
+	CMP R2, 0
+	JGT testa_display_min
+	JZ sai_testa_limites_display
 testa_display_min:
 	MOV R5, DISPLAY_MIN					; valor minimo do display
-	SUB R1, DECREMENTACAO_DISPLAY		; valor atual do display
 	CMP R1, R5
 	JZ impede_movimento_display			; ja nao pode diminuir mais
+	SUB R1, R2		; valor atual do display
 	MOV [DISPLAY_VAL], R1		; altera o valor guardado do display
 	JMP sai_testa_limites_display
 impede_movimento_display:
@@ -366,6 +400,7 @@ impede_movimento_display:
 sai_testa_limites_display:
 	POP R6
 	POP R5
+	POP R2
 	RET
 
 ; **********************************************************************
