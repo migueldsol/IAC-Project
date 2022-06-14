@@ -371,13 +371,13 @@ Draw_missil:
 
 Move_missil:
 	MOV R1,[INTERRUPCAO_MISSIL]
-	CMP R1 , ON
+	CMP R1 , ON				;verifica se a interrupção foi ativada
 	JNZ exit_missil
 	MOV R1,[POS_MISSIL_X]
 	MOV R2,[POS_MISSIL_Y]
 	MOV R4,DEF_MISSIL
 	CALL testa_limite_cima
-	CMP R0,0
+	CMP R0,0				;verifica se o missil chegou ao limite do ecra
 	JZ exit_missil
 	CALL apaga_boneco
 	SUB R1,1
