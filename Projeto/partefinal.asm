@@ -97,6 +97,9 @@ ALTURA_EXPLOSAO		EQU 5		; altura da explosao
 LARGURA_MISSIL		EQU 1		; largura do missil
 ALTURA_MISSIL		EQU 1		; altura do missil
 
+TIPO_MODEDA			EQU 1		; define os tipos para comparações
+TIPO_METEORO		EQU 2
+
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
 WHITE 	EQU 0FFFFH		; cor branca
@@ -114,8 +117,6 @@ DRKBLUE EQU 0F16BH		; cor azul escuro
 PLACE 1400H
 POS_ROVER_X:	WORD	0000H; endereco de memoria da coluna do rover
 POS_ROVER_Y:	WORD	0000H; endereco de memoria da linha do rover
-POS_METEORO_X:	WORD	0000H; endereco de memoria da coluna do meteoro
-POS_METEORO_Y:	WORD	0000H; endereco de memoria da linha do meteoro
 POS_MISSIL_X:	WORD	0000H;
 POS_MISSIL_Y:	WORD	0000H;
 DISPLAY_VAL:	WORD	0000H; endereco de memoria do valor do display
@@ -266,13 +267,6 @@ init_display:
 	MOV [DISPLAY], R1						; reinicia o display
 	MOV [DISPLAY_VAL], R2					; reinicia o valor do display
 
-;init_meteoro:
-;     MOV  R1, LINHA_METEORO			; linha do meteoro
-;     MOV  R2, COLUNA_METEORO		; coluna do meteoro
-;	 MOV  [POS_METEORO_X], R2		; poe a coluna do meteoro na memoria
-;	 MOV  [POS_METEORO_Y], R1		; poe a linha do meteoro na memoria
-;	 MOV  R4, DEF_METEORO_3			; define o meteoro
-;	 CALL desenha_boneco
 
 init_ROVER:
      MOV  R1, LINHA_ROVER			; linha do boneco
@@ -288,41 +282,9 @@ main:
 	CALL UPDATE_DISPLAY
 	CALL Missil
 	CALL meteoro
-
+	;CALL colision
 	JMP main
 
-;testa_display_baixo:
-;	CMP R0, R8					; compara a tecla premida com a tecla que decrementa (7)
-;	JNZ testa_display_cima		; caso esta nao seja a display_baixo (7), vamos testar a display_cima (3)
-;	MOV R9, R8					; valor da tecla de descer o display
-;	CALL espera_nao_tecla		; espera até que a tecla deixe de ser premida
-;	MOV R7, -1					; vai decrementar o display
-;	JMP ve_limites_display	
-
-
-
-	
-
-;ve_limites_display:
-;	CALL testa_limites_display		; ve se chegou aos limites do display e se sim forca R7 a 0
-;	CMP R7, 0
-;	JZ obtem_tecla					; se nao e para incremenetar o display, vai ler o teclado de novo
-;	JMP altera_display
-
-;move_meteoro:
-;	MOV R1, [POS_METEORO_Y]		; guarda a posicao Y do rover
-;	MOV R2, [POS_METEORO_X]		; guarda a posicao X do rover
-;	MOV R4, DEF_METEORO_3		; guarda a definicao do rover
-;	CALL apaga_boneco			; apaga o meteoro na sua posicao corrente
-;	JMP linha_seguinte	
-
-
-;linha_seguinte:
-;	MOV R1, [POS_METEORO_Y]
-;	ADD R1, R7					; calcula a nova linha do meteoro
-;	MOV [POS_METEORO_Y], R1		; altera a linha do meteoro
-;	CALL desenha_boneco			; desenha o meteoro na sua nova posica
-;	JMP obtem_tecla
 ; **********************************************************************
 ; ROT_INT_0 - 	Rotina de atendimento da interrupção 0
 ;			Faz com que os meteoros se movam uma casa para baixo 
@@ -361,6 +323,73 @@ rot_int_2:
 	POP R2
 	POP R1
 	RFE					; Return From Exception (diferente do RET)
+
+
+
+;************************************************************************
+
+colision:
+	PUSH R1
+	PUSH R2
+	PUSH R3
+	PUSH R4
+	PUSH R5
+	PUSH R9
+	MOV R9, 0	; iteração
+colision_main:
+	MOV R3, cord_0
+	ADD R3, R9
+	ADD R3, 4
+	CMP R3, TIPO_METEORO
+	JZ colision_meteoro
+	JMP sai_colision
+
+colision_meteoro:
+	MOV R1, [POS_ROVER_Y]
+	MOV R4, DEF_METEORO_3
+	ADD R4, 2
+	MOV R5, [R4]
+	ADD R1, R5
+	MOV R4, [POS_ROVER_Y]
+	CMP R1, R4
+	JZ handle_colision_meteoro
+
+
+colision_moeda:
+
+
+
+handle_colision_meteoro:
+	MOV R1, 1
+	MOV [SELECIONA_CENARIO_FUNDO], R1
+	JMP menu_lost_colision	
+cycle:
+	MOV R8, 18
+	CMP R9, R8
+	JZ sai_colision
+	ADD R9, 6
+	JMP colision_main
+sai_colision:
+	POP R9
+	POP R5
+	POP R4
+	POP R3
+	POP R2
+	POP R1
+	RET
+
+
+menu_lost_colision:
+	JMP menu_lost_colision
+
+
+
+
+
+
+
+
+
 
 ; **********************************************************************
 ; ANIMA_METEORO - Rotina cooperativa que desenha e faz descer o meteoro
@@ -831,36 +860,6 @@ sai_testa_limites:
 	POP R2
 	RET
 
-; **********************************************************
-; TESTA_LIMITES_METEORO - Testa se o meteoro chegou a linha
-;				onde o rover pode estar 
-;				(linhas ocupadas pelo rover)	
-;				e nesse caso impede o movimento (força R7 a 0)
-; Argumentos:	R2 - linha em que o meteoro esta
-;				R6 - largura do meteoro
-;				R7 - sentido de movimento do meteoro (valor a somar a linha
-;				em cada movimento: +1 para baixo)
-;
-; Retorna: 		R7 - 0 se já tiver chegado ao limite, inalterado caso contrário
-;
-; ******************************************************
-testa_limites_meteoro:
-	PUSH	R2
-	PUSH	R5
-	PUSH	R6
-testa_limite_baixo:					; ve se o meteoro chegou ao limite inferior do ecra
-	MOV	R5, MAX_LINHA_METEORO		; obtem o valor da coluna maxima
-	MOV R2, [POS_METEORO_Y]			; obtem a posicao atual do meteoro
-	CMP	R2, R5	
-	JZ impede_movimento_meteoro		; ja nao pode mover mais
-	JMP sai_testa_limites_meteoro	; entre limites. Mantem o valor do R7
-impede_movimento_meteoro:
-	MOV	R7, 0						; impede o movimento, forçando R7 a 0
-sai_testa_limites_meteoro:	
-	POP	R6
-	POP	R5
-	POP R2
-	RET
 
 ; **********************************************************************
 ; TECLADO - Faz uma leitura as teclas de todas linha do teclado e retorna o valor lido
