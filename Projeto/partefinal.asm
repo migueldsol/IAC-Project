@@ -60,7 +60,7 @@ MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
 MAX_COLUNA			EQU  63   	; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 0F80H	; numero da linha mais em baixo
-MAX_LINHA_METEORO 	EQU 32		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
+MAX_LINHA_METEORO 	EQU 27		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
 DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
@@ -176,7 +176,7 @@ DEF_METEORO_3:			; tabela que define o meteoro nivel 3 (cor, largura, altura, pi
 	WORD		0 , YELLOW , RED , YELLOW , 0
 	WORD		YELLOW , RED , BROWN , RED , YELLOW
     WORD		RED , BROWN , BROWN , BROWN , RED
-	WORD		0 , BLUE , BLUE , BLUE , 0
+	WORD		0 , RED , BROWN , RED , 0
 
 DEF_MOEDA_1:			; tabela que define a moeda nivel 1 (cor, largura, altura, pixels)
 	WORD		LARGURA_MOEDA1
@@ -385,6 +385,7 @@ sai_meteoro:
 	PUSH R4
 	PUSH R5
 	PUSH R6
+	PUSH R7
 
 	MOV  R6, R3			; copia de R3 (para nao destruir R3)
 	SHL  R6, 1			; multiplica o numero do meteoro por 2 (porque a linha_meteoro e uma tabela de words)
@@ -397,14 +398,56 @@ sai_meteoro:
 	ADD  R1, 1			; passa a linha abaixo
 	MOV  R4, MAX_LINHA_METEORO
 	CMP  R1, R4			; ja estava na linha do fundo?
-	JLT  escreve
+	JLT  draw
 	MOV  R1, 0			; volta ao topo do ecra
 
-escreve:
+draw:
 	MOV  [R5+R6], R1		; atualiza na tabela a linha em que esta o meteoro
-	MOV R4, DEF_METEORO_3
+	CMP R1,	0
+	JLE fragmento1
+
+	MOV R7, 2
+	CMP R1, R7 
+	JLE fragmento2
+
+	MOV R7, 5
+	CMP R1, R7
+	JLE meteoro1
+
+	MOV R7, 9
+	CMP R1, R7
+	JLE meteoro2
+
+	MOV R7, 15
+	CMP R1, R7
+	JMP meteoro3
+
+fragmento1:
+	MOV R4, DEF_FRAGMENTO_1
 	CALL desenha_boneco		; escreve o meteoro na nova linha
+	JMP sai_anima_meteoro
+
+fragmento2:
+	MOV R4, DEF_FRAGMENTO_2
+	CALL desenha_boneco
+	JMP sai_anima_meteoro
+
+meteoro1:
+	MOV R4, DEF_METEORO_1
+	CALL desenha_boneco
+	JMP sai_anima_meteoro
+
+meteoro2:
+	MOV R4, DEF_METEORO_2
+	CALL desenha_boneco
+	JMP sai_anima_meteoro
+
+meteoro3:
+	MOV R4, DEF_METEORO_3
+	CALL desenha_boneco
+
 sai_anima_meteoro:
+	POP  R7
 	POP  R6
 	POP  R5
 	POP  R4
