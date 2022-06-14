@@ -221,11 +221,28 @@ tab:
 	WORD rot_int_1			; rotina de atendimento da interrupção 1
 	WORD rot_int_2			; rotina de atendimento da interrupção 2
 
+cord_0:
+	WORD 0					;posicao x
+	WORD 0					;posicao y
+	WORD 0					;tipo de meteoro
+cord_1:
+	WORD 0					;posicao x
+	WORD 0					;posicao y
+	WORD 0					;tipo de meteoro
+cord_2:
+	WORD 0					;posicao x
+	WORD 0					;posicao y
+	WORD 0					;tipo de meteoro
+cord_3:
+	WORD 0					;posicao x
+	WORD 0					;posicao y
+	WORD 0					;tipo de meteoro
+
 linha_meteoro:
-	WORD 0				; linha em que o meteoro 1 esta
-	WORD 0				; linha em que o meteoro 2 esta
-	WORD 0				; linha em que o meteoro 3 esta
-	WORD 0				; linha em que o meteoro 4 esta
+	WORD cord_0				; meteoro 1 
+	WORD cord_1				; meteoro 2 
+	WORD cord_2				; meteoro 3 
+	WORD cord_3				; meteoro 4 
 
 ; *********************************************************************************
 ; * Codigo
@@ -386,11 +403,13 @@ sai_meteoro:
 	PUSH R5
 	PUSH R6
 	PUSH R7
+	PUSH R8
 
 	MOV  R6, R3			; copia de R3 (para nao destruir R3)
 	SHL  R6, 1			; multiplica o numero do meteoro por 2 (porque a linha_meteoro e uma tabela de words)
-	MOV  R5, linha_meteoro
-	MOV  R1, [R5+R6]	; linha em que o meteoro esta
+	MOV R8, linha_meteoro
+	MOV  R5, [R8+R6]
+	MOV  R1, [R5]	; linha em que o meteoro esta
 	MOV  R2, R3			
 	SHL  R2, 4			; multiplica o numero do meteoro por 8 para dar a coluna onde desenhar o meteoro
 	MOV  R4, DEF_METEORO_3
@@ -402,7 +421,7 @@ sai_meteoro:
 	MOV  R1, 0			; volta ao topo do ecra
 
 draw:
-	MOV  [R5+R6], R1		; atualiza na tabela a linha em que esta o meteoro
+	MOV  [R5], R1		; atualiza na tabela a linha em que esta o meteoro
 	CMP R1,	0
 	JLE fragmento1
 
@@ -447,6 +466,7 @@ meteoro3:
 	CALL desenha_boneco
 
 sai_anima_meteoro:
+	POP	 R8
 	POP  R7
 	POP  R6
 	POP  R5

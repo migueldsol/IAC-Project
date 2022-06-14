@@ -225,12 +225,28 @@ tab:
 	WORD rot_int_0			; rotina de atendimento da interrupção 0
 	WORD rot_int_1			; rotina de atendimento da interrupção 1
 	WORD rot_int_2			; rotina de atendimento da interrupção 2
+meteoro1:
+	WORD 0					;posicao x
+	WORD 0					;posicao y
+	WORD 0					;tipo de meteoro
+meteoro2:
+	WORD 0					;posicao x
+	WORD 0					;posicao y
+	WORD 0					;tipo de meteoro
+meteoro3:
+	WORD 0					;posicao x
+	WORD 0					;posicao y
+	WORD 0					;tipo de meteoro
+meteoro4:
+	WORD 0					;posicao x
+	WORD 0					;posicao y
+	WORD 0					;tipo de meteoro
 
 linha_meteoro:
-	WORD 0				; linha em que o meteoro 1 esta
-	WORD 0				; linha em que o meteoro 2 esta
-	WORD 0				; linha em que o meteoro 3 esta
-	WORD 0				; linha em que o meteoro 4 esta
+	WORD meteoro1				; meteoro 1 
+	WORD meteoro2				; meteoro 2 
+	WORD meteoro3				; meteoro 3 
+	WORD meteoro4				; meteoro 4 
 
 ; *********************************************************************************
 ; * Codigo
@@ -351,6 +367,57 @@ free_end:
 ;	MOV [POS_METEORO_Y], R1		; altera a linha do meteoro
 ;	CALL desenha_boneco			; desenha o meteoro na sua nova posica
 ;	JMP obtem_tecla
+
+; **********************************************************************
+; Missile_colision - Verifies if the missile colides with the meteor or 
+;					the coin
+; **********************************************************************
+Missile_Colision: 				; R0 endereco do meteorito - R3 endereco do missil 
+	PUSH R0
+	PUSH R1
+	PUSH R2
+	PUSH R3
+	PUSH R4
+	PUSH R5
+	PUSH R6
+	PUSH R7
+
+	MOV  R8, 0
+
+	MOVB R1, [R0] 				; coordenada x do meteorito
+	ADD  R0, 1
+	MOVB R2, [R0] 				; coordenada y do meteorito
+	ADD  R0, 1
+	MOV  R4, [R0] 				; desenho do meteorito
+	ADD  R4, NEXT_WORD
+
+	MOVB R5, [R4] 				; largura do meteorito
+	ADD  R5, R1
+	SUB  R5, 1 					; coordenada x mais a esquerda do meteorito
+
+	ADD  R4, 1
+	MOVB R6, [R4] 				; altura do meteorito
+	ADD  R6, R2
+	SUB  R6, 1 					; coordenada y mais a baixo do meteorito
+
+	MOV R4, [POS_MISSIL_X] 				; coordenada x do missil
+	MOV R7, [POS_MISSIL_Y] 				; coordenada y do missil
+
+	CMP  R4, R1
+	JLT  missile_Colision_Return
+
+	CMP  R4, R5
+	JGT  missile_Colision_Return
+
+	CMP  R7, R2
+	JLT  missile_Colision_Return
+
+	CMP  R7, R6 	
+	JGT  missile_Colision_Return 	; testam se o missil esta dentro da "caixa" em que o meteorito se insere
+
+	MOV  R8, 1
+
+
 ; **********************************************************************
 ; ROT_INT_0 - 	Rotina de atendimento da interrupção 0
 ;			Faz com que os meteoros se movam uma casa para baixo 
