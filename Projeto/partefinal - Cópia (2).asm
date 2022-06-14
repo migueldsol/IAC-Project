@@ -60,7 +60,7 @@ MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
 MAX_COLUNA			EQU  63     ; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 31		; numero da linha mais em baixo
-MAX_LINHA_METEORO 	EQU 32		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
+MAX_LINHA_METEORO 	EQU 40		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
 DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
@@ -158,7 +158,7 @@ DEF_METORO_1:			; tabela que define o meteoro nivel 1 (cor, largura, altura, pix
 	WORD		LARGURA_METEORO1
 	WORD		ALTURA_METEORO1
 	WORD		YELLOW, 0, YELLOW
-	WORD		RED, BROWN, RED
+	WORD		RED, BLUE, RED
 	WORD		0, BROWN, 0
 
 DEF_METEORO_2:			; tabela que define o meteoro nivel 2 (cor, largura, altura, pixels)
@@ -270,18 +270,8 @@ main:
 	CALL Rover				; Move Rover caso tecla tenha sido premida
 	CALL UPDATE_DISPLAY
 	CALL Missil
-
-	MOV R3, 0				; numero do meteoro
-	CALL anima_meteoro
-
-	MOV R3, 1
-	CALL anima_meteoro	
+	CALL meteoro
 	
-	MOV R3, 2
-	CALL anima_meteoro
-	
-	MOV R3, 3
-	CALL anima_meteoro
 
 	JMP main
 
@@ -363,6 +353,32 @@ rot_int_2:
 ;			 uma tabela de quatro vari�veis simples, uma para cada barra
 ; Argumentos: R3 - Numero do meteoro (0 a 3)
 ; **********************************************************************
+
+meteoro:
+	PUSH R1
+	PUSH R3
+	MOV R1, [INTERRUPCAO_METEORO]
+	CMP R1, OFF
+	JZ sai_meteoro
+	MOV R3, 0				; numero do meteoro
+	CALL anima_meteoro
+
+	MOV R3, 1
+	CALL anima_meteoro	
+	
+	MOV R3, 2
+	CALL anima_meteoro
+	
+	MOV R3, 3
+	CALL anima_meteoro
+
+	MOV R1, OFF
+	MOV [INTERRUPCAO_METEORO], R1
+sai_meteoro:
+	POP R3
+	POP R1
+	RET
+
  anima_meteoro:
 	PUSH R1
 	PUSH R2
@@ -370,13 +386,9 @@ rot_int_2:
 	PUSH R4
 	PUSH R5
 	PUSH R6
+
 	MOV  R6, R3			; copia de R3 (para nao destruir R3)
 	SHL  R6, 1			; multiplica o numero do meteoro por 2 (porque a linha_meteoro e uma tabela de words)
-
-	MOV R1, [INTERRUPCAO_METEORO]
-	CMP R1, ON
-	JNZ sai_anima_meteoro
-
 	MOV  R5, linha_meteoro
 	MOV  R1, [R5+R6]	; linha em que o meteoro esta
 	MOV  R2, R3			
@@ -385,9 +397,10 @@ rot_int_2:
 	CALL apaga_boneco		; apaga o meteoro do ecra
 	ADD  R1, 1			; passa a linha abaixo
 	MOV  R4, MAX_LINHA_METEORO
-	CMP  R2, R4			; ja estava na linha do fundo?
+	CMP  R1, R4			; ja estava na linha do fundo?
 	JLT  escreve
 	MOV  R1, 0			; volta ao topo do ecra
+
 escreve:
 	MOV  [R5+R6], R1		; atualiza na tabela a linha em que esta o meteoro
 	MOV R4, DEF_METORO_1
