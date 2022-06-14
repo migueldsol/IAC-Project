@@ -96,8 +96,9 @@ ALTURA_EXPLOSAO		EQU 5		; altura da explosao
 
 LARGURA_MISSIL		EQU 1		; largura do missil
 ALTURA_MISSIL		EQU 1		; altura do missil
+MAX_LINHA_MISSIL	EQU 19		; máximo altura missil
 
-TIPO_MODEDA			EQU 1		; define os tipos para comparações
+TIPO_MOEDA			EQU 1		; define os tipos para comparações
 TIPO_METEORO		EQU 2
 
 RED		EQU	0FF00H		; cor vermelha
@@ -223,20 +224,20 @@ tab:
 	WORD rot_int_2			; rotina de atendimento da interrupção 2
 
 cord_0:
-	WORD 0					;posicao x
-	WORD 0					;posicao y
+	WORD 0					;posicao Y
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
 cord_1:
-	WORD 0					;posicao x
-	WORD 0					;posicao y
+	WORD 0					;posicao Y
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
 cord_2:
-	WORD 0					;posicao x
-	WORD 0					;posicao y
+	WORD 0					;posicao Y
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
 cord_3:
-	WORD 0					;posicao x
-	WORD 0					;posicao y
+	WORD 0					;posicao Y
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
 
 linha_meteoro:
@@ -562,7 +563,7 @@ exit_missil:
 
 testa_limite_cima:
 	PUSH R3
-	MOV R3,MIN_LINHA
+	MOV R3,MAX_LINHA_MISSIL
 	CMP R1,R3
 	JZ apaga_missil
 	JMP sai_limite_cima
