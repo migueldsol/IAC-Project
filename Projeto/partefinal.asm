@@ -119,7 +119,7 @@ DISPLAY_VAL:	WORD	0000H; endereco de memoria do valor do display
 INC_DEC_DISPLAY: WORD	0000H; endereço de memória de valor a acrescentar ao display
 INTERRUPCAO_METEORO: WORD 0000H; endereço de memória do valor de ativação do movimento do meteoro
 INTERRUPCAO_MISSIL:  WORD 0000H; endereço de memória do valor de ativação do movimento do missíl
-INTERRUPCAO_ENERGIA: WORD 0000H; endereço de memória do valor de ativação da redução da energia
+INTERRUPCAO_ENERGIA: WORD FFFFH; endereço de memória do valor de ativação da redução da energia
 
 PLACE 1000H
 
@@ -324,6 +324,7 @@ rot_int_1:
 rot_int_2:
 	PUSH R1
 	PUSH R2
+	
 	MOV R1, UPDATE_DISPLAY_ON;
 	MOV [INTERRUPCAO_ENERGIA], R1;
 	MOV R2, DISPLAY_INCREASE;
@@ -346,7 +347,8 @@ UPDATE_DISPLAY:
 	MOV R1, [DISPLAY_VAL]
 	CALL testa_limites_display
 	CALL HEX_TO_DEC
-	MOV [DISPLAY], R1			; altera o display
+	MOV [DISPLAY], R1			; altera o display 
+	MOV [DISPLAY_VAL], R1
 
 EXIT_UPDATE_DISPLAY:
 	POP R3
