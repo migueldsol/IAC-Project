@@ -40,8 +40,10 @@ MASCARA_DISPLAY		EQU 0FFFH	; isolar os 12 bits de menor peso, ao ler o valor do 
 
 TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
-TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
 TECLA_MISSIL		EQU 1		; tecla para disparar umm missil
+TECLA_START			EQU 8		; tecla para começar o jogo
+TECLA_PAUSE			EQU 9		; tecla para pausar o jogo
+TECLA_STOP			EQU 10		; tecla para parar o jogo
 
 DEFINE_LINHA    		EQU 600AH      	; endereco do comando para definir a linha
 DEFINE_COLUNA   		EQU 600CH      	; endereco do comando para definir a coluna
@@ -125,6 +127,9 @@ INTERRUPCAO_MISSIL:  WORD 0000H; endereço de memória do valor de ativação do
 INTERRUPCAO_ENERGIA: WORD 0000H; endereço de memória do valor de ativação da redução da energia
 MISSIL_NUMBER:	WORD 0000H; adress of the number of missils in screen
 PRESSED_KEY:	WORD 0000H; Pressed key
+START:			WORD 0000H
+STOP:			WORD 0000H
+PAUSE:			WORD 0000H
 
 PLACE 1000H
 
@@ -266,6 +271,7 @@ init_ROVER:
 	 CALL desenha_boneco
 
 main:
+	;CALL Start_inic
 	CALL Teclado			; leitura às tecla
 	CALL Rover				; Move Rover caso tecla tenha sido premida
 	CALL UPDATE_DISPLAY
@@ -273,6 +279,45 @@ main:
 	CALL meteoro
 
 	JMP main
+
+; **********************************************************************
+; Start - Starts the program
+; **********************************************************************
+Start_inic:
+	PUSH R1 
+	PUSH R2
+Start:
+	MOV R1,[PRESSED_KEY]
+	MOV R2, TECLA_START
+	CMP R1,R2
+	JZ exit_start
+	JMP Start
+exit_start:
+	POP R2
+	POP	R1
+	RET
+
+; **********************************************************************
+; Stop - End the game 
+; **********************************************************************
+Stop_init:
+	PUSH R1
+	PUSH R2
+	MOV R1, [PRESSED_KEY]
+	MOV R2, TECLA_STOP
+	CMP R1,R2
+	JZ end_game
+
+free_end:
+	POP R2
+	POP R1
+	RET
+
+; **********************************************************************
+; ROT_INT_0 - 	Rotina de atendimento da interrupção 0
+;			Faz com que os meteoros se movam uma casa para baixo 
+;			periodicamente
+; **********************************************************************
 
 ;testa_display_baixo:
 ;	CMP R0, R8					; compara a tecla premida com a tecla que decrementa (7)
