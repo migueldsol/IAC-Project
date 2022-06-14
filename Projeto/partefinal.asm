@@ -60,7 +60,7 @@ MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
 MAX_COLUNA			EQU  63   	; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 0F80H	; numero da linha mais em baixo
-MAX_LINHA_METEORO 	EQU 23		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
+MAX_LINHA_METEORO 	EQU 32		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
 DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
@@ -154,7 +154,7 @@ DEF_FRAGMENTO_2:			; tabela que define o fragmento 2 (cor, largura, altura, pixe
 	WORD		GRAY, GRAY
 	WORD		GRAY, GRAY
 
-DEF_METORO_1:			; tabela que define o meteoro nivel 1 (cor, largura, altura, pixels)
+DEF_METEORO_1:			; tabela que define o meteoro nivel 1 (cor, largura, altura, pixels)
 	WORD		LARGURA_METEORO1
 	WORD		ALTURA_METEORO1
 	WORD		YELLOW, 0, YELLOW
@@ -176,7 +176,7 @@ DEF_METEORO_3:			; tabela que define o meteoro nivel 3 (cor, largura, altura, pi
 	WORD		0 , YELLOW , RED , YELLOW , 0
 	WORD		YELLOW , RED , BROWN , RED , YELLOW
     WORD		RED , BROWN , BROWN , BROWN , RED
-	WORD		0 , RED , BROWN , RED , 0
+	WORD		0 , BLUE , BLUE , BLUE , 0
 
 DEF_MOEDA_1:			; tabela que define a moeda nivel 1 (cor, largura, altura, pixels)
 	WORD		LARGURA_MOEDA1
@@ -221,6 +221,11 @@ tab:
 	WORD rot_int_1			; rotina de atendimento da interrupção 1
 	WORD rot_int_2			; rotina de atendimento da interrupção 2
 
+linha_meteoro:
+	WORD 0				; linha em que o meteoro 1 esta
+	WORD 0				; linha em que o meteoro 2 esta
+	WORD 0				; linha em que o meteoro 3 esta
+	WORD 0				; linha em que o meteoro 4 esta
 
 ; *********************************************************************************
 ; * Codigo
@@ -244,13 +249,13 @@ init_display:
 	MOV [DISPLAY], R1						; reinicia o display
 	MOV [DISPLAY_VAL], R2					; reinicia o valor do display
 
-init_meteoro:
-     MOV  R1, LINHA_METEORO			; linha do meteoro
-     MOV  R2, COLUNA_METEORO		; coluna do meteoro
-	 MOV  [POS_METEORO_X], R2		; poe a coluna do meteoro na memoria
-	 MOV  [POS_METEORO_Y], R1		; poe a linha do meteoro na memoria
-	 MOV  R4, DEF_METEORO_3			; define o meteoro
-	 CALL desenha_boneco
+;init_meteoro:
+;     MOV  R1, LINHA_METEORO			; linha do meteoro
+;     MOV  R2, COLUNA_METEORO		; coluna do meteoro
+;	 MOV  [POS_METEORO_X], R2		; poe a coluna do meteoro na memoria
+;	 MOV  [POS_METEORO_Y], R1		; poe a linha do meteoro na memoria
+;	 MOV  R4, DEF_METEORO_3			; define o meteoro
+;	 CALL desenha_boneco
 
 init_ROVER:
      MOV  R1, LINHA_ROVER			; linha do boneco
@@ -265,6 +270,8 @@ main:
 	CALL Rover				; Move Rover caso tecla tenha sido premida
 	CALL UPDATE_DISPLAY
 	CALL Missil
+	CALL meteoro
+
 	JMP main
 
 ;testa_display_baixo:
@@ -337,6 +344,74 @@ rot_int_2:
 	POP R2
 	POP R1
 	RFE					; Return From Exception (diferente do RET)
+
+; **********************************************************************
+; ANIMA_METEORO - Rotina cooperativa que desenha e faz descer o meteoro
+;			 numa dada coluna. Se chegar ao fundo, passa ao topo.
+;			 A linha em que o byte � escrito � guardada na variavel linha_barra, que �
+;			 uma tabela de quatro vari�veis simples, uma para cada barra
+; Argumentos: R3 - Numero do meteoro (0 a 3)
+; **********************************************************************
+
+meteoro:
+	PUSH R1
+	PUSH R3
+	MOV R1, [INTERRUPCAO_METEORO]
+	CMP R1, OFF
+	JZ sai_meteoro
+	MOV R3, 0				; numero do meteoro
+	CALL anima_meteoro
+
+	MOV R3, 1
+	CALL anima_meteoro	
+	
+	MOV R3, 2
+	CALL anima_meteoro
+	
+	MOV R3, 3
+	CALL anima_meteoro
+
+	MOV R1, OFF
+	MOV [INTERRUPCAO_METEORO], R1
+sai_meteoro:
+	POP R3
+	POP R1
+	RET
+
+ anima_meteoro:
+	PUSH R1
+	PUSH R2
+	PUSH R3
+	PUSH R4
+	PUSH R5
+	PUSH R6
+
+	MOV  R6, R3			; copia de R3 (para nao destruir R3)
+	SHL  R6, 1			; multiplica o numero do meteoro por 2 (porque a linha_meteoro e uma tabela de words)
+	MOV  R5, linha_meteoro
+	MOV  R1, [R5+R6]	; linha em que o meteoro esta
+	MOV  R2, R3			
+	SHL  R2, 4			; multiplica o numero do meteoro por 8 para dar a coluna onde desenhar o meteoro
+	MOV  R4, DEF_METEORO_3
+	CALL apaga_boneco		; apaga o meteoro do ecra
+	ADD  R1, 1			; passa a linha abaixo
+	MOV  R4, MAX_LINHA_METEORO
+	CMP  R1, R4			; ja estava na linha do fundo?
+	JLT  escreve
+	MOV  R1, 0			; volta ao topo do ecra
+
+escreve:
+	MOV  [R5+R6], R1		; atualiza na tabela a linha em que esta o meteoro
+	MOV R4, DEF_METEORO_3
+	CALL desenha_boneco		; escreve o meteoro na nova linha
+sai_anima_meteoro:
+	POP  R6
+	POP  R5
+	POP  R4
+	POP  R3
+	POP  R2
+	POP  R1
+	RET
 
 ; ************************************************************************
 ; MISSIL - moves the missil one position at a time(depends on exception 1)
@@ -523,6 +598,7 @@ exit_rover:
 	POP R1
 	POP R0
 	RET
+
 ; **********************************************************************
 ; DESENHA_BONECO - Desenha um boneco na linha e coluna indicadas
 ;			    com a forma e cor definidas na tabela indicada.
