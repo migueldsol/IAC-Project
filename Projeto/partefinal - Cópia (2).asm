@@ -60,7 +60,7 @@ MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
 MAX_COLUNA			EQU  63     ; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 31		; numero da linha mais em baixo
-MAX_LINHA_METEORO 	EQU 23		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
+MAX_LINHA_METEORO 	EQU 32		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
 DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
@@ -380,16 +380,16 @@ rot_int_2:
 	MOV  R5, linha_meteoro
 	MOV  R1, [R5+R6]	; linha em que o meteoro esta
 	MOV  R2, R3			
-	SHL  R2, 4			; multiplica o numero do meteoro por 8 para dar a coluna onde desenhar o meteoro
+	SHL  R2, 3			; multiplica o numero do meteoro por 8 para dar a coluna onde desenhar o meteoro
 	MOV  R4, DEF_METORO_1
 	CALL apaga_boneco		; apaga o meteoro do ecra
 	ADD  R1, 1			; passa a linha abaixo
-	MOV  R4, MAX_LINHA
+	MOV  R4, MAX_LINHA_METEORO
 	CMP  R2, R4			; ja estava na linha do fundo?
 	JLT  escreve
 	MOV  R1, 0			; volta ao topo do ecra
 escreve:
-	MOV  [R5+R6], R1		; atualiza na tabela a linha em que esta barra esta
+	MOV  [R5+R6], R1		; atualiza na tabela a linha em que esta o meteoro
 	MOV R4, DEF_METORO_1
 	CALL desenha_boneco		; escreve o meteoro na nova linha
 sai_anima_meteoro:
