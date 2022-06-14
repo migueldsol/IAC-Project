@@ -57,7 +57,7 @@ LINHA_METEORO      	EQU  2      ; linha do meteoro
 COLUNA_METEORO		EQU  30     ; coluna do meteoro (a meio do ecra) 
 
 MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
-MAX_COLUNA			EQU  074H   	; numero da coluna mais a direita 
+MAX_COLUNA			EQU  63   	; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 0F80H	; numero da linha mais em baixo
 MAX_LINHA_METEORO 	EQU 23		; numero maximo que o meteorito pode atingir de forma a nao afetar o rover
@@ -357,12 +357,12 @@ Missil:
 	JMP exit_missil
 
 Draw_missil:
-	MOV R1, [POS_ROVER_X]
-	MOV R2, [POS_ROVER_Y]
-	SUB R1, 3
-	ADD R2, 4
-	MOV [POS_MISSIL_X],R1
-	MOV [POS_MISSIL_Y],R2
+	MOV R2, [POS_ROVER_X]
+	MOV R1, [POS_ROVER_Y]
+	SUB R1, 1
+	ADD R2, 2
+	MOV [POS_MISSIL_X],R2
+	MOV [POS_MISSIL_Y],R1
 	MOV R4, DEF_MISSIL
 	CALL desenha_boneco
 	MOV R4, 1
@@ -373,15 +373,15 @@ Move_missil:
 	MOV R1,[INTERRUPCAO_MISSIL]
 	CMP R1 , ON				;verifica se a interrupção foi ativada
 	JNZ exit_missil
-	MOV R1,[POS_MISSIL_X]
-	MOV R2,[POS_MISSIL_Y]
+	MOV R2,[POS_MISSIL_X]
+	MOV R1,[POS_MISSIL_Y]
 	MOV R4,DEF_MISSIL
 	CALL testa_limite_cima
 	CMP R0,0				;verifica se o missil chegou ao limite do ecra
 	JZ exit_missil
 	CALL apaga_boneco
 	SUB R1,1
-	MOV [POS_MISSIL_X],R1
+	MOV [POS_MISSIL_Y],R1
 	CALL desenha_boneco
 	MOV R1,OFF
 	MOV [INTERRUPCAO_MISSIL],R1
