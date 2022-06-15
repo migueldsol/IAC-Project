@@ -19,8 +19,7 @@ TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 DISPLAY				EQU 0A000H 	; endereço do display
-DISPLAY_TIME	EQU 0FFFBH	; value that the interruption will make the display increase
-DISPLAY_COIN	EQU 0000AH	; value that increases display in colision with coin	
+DISPLAY_INCREASE	EQU 0FFFBH	; value that the interruption will make the display increase
 ON					EQU 0001H	; activate the update_display routine
 OFF					EQU 0000H	; activate the update_display routine
 MASCARA_DISPLAY		EQU 0FFFH	; isolar os 12 bits de menor peso, ao ler o valor do display
@@ -52,7 +51,6 @@ DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
 DECREMENTACAO_DISPLAY	EQU 5	; valor que vai ser subtraido periodicamente
-INCREMENTACAO_DISPLAY	EQU 000AH  ; valor que aumenta no display caso atinja uma moeda
 HEXTODEC 			EQU 0AH
 
 ATRASO			EQU	0400H		; atraso para limitar a velocidade de movimento do boneco
@@ -89,9 +87,6 @@ MAX_LINHA_MISSIL	EQU 19		; máximo altura missil
 TIPO_MOEDA			EQU 1		; define os tipos para comparações
 TIPO_METEORO		EQU 2
 
-MOVE_NEXT_WORD		EQU 2		;passa para a próxima word da tabela
-MOVE_NEXT_TWO_WORDS	EQU 4		;passa duas palavras para a frente
-
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
 WHITE 	EQU 0FFFFH		; cor branca
@@ -119,7 +114,6 @@ INTERRUPCAO_MISSIL:  WORD 0000H; endereço de memória do valor de ativação do
 INTERRUPCAO_ENERGIA: WORD 0000H; endereço de memória do valor de ativação da redução da energia
 MISSIL_NUMBER:	WORD 0000H; adress of the number of missils in screen
 PRESSED_KEY:	WORD 0000H; Pressed key
-RANDOM_NUMBER:  WORD 0000H	;random number
 
 PLACE 1600H
 
@@ -277,8 +271,7 @@ main:
 	CALL UPDATE_DISPLAY
 	CALL Missil
 	CALL meteoro
-	CALL colision_meteoro_init
-	CALL colision_missile_init
+	CALL colision
 	JMP main
 
 ; **********************************************************************
@@ -311,123 +304,20 @@ rot_int_1:
 ; **********************************************************************
 rot_int_2:
 	PUSH R1
-	MOV R1, DISPLAY_TIME
-	MOV [INC_DEC_DISPLAY],R1
+	PUSH R2
+	MOV R1, ON;
+	MOV [INTERRUPCAO_ENERGIA],R1
+	MOV R2, DISPLAY_INCREASE;
+	MOV [INC_DEC_DISPLAY], R2
+	POP R2
 	POP R1
 	RFE					; Return From Exception (diferente do RET)
-
-
-; **********************************************************************
-; Missile_colision - Verifies if the missile colides with the meteor or 
-;					the coin
-; **********************************************************************
-colision_missile_init:
-	PUSH R0
-	PUSH R1
-	PUSH R2
-	PUSH R3
-	PUSH R4
-	PUSH R5
-	MOV R3 , 0	
-	JMP colision_missile_return
-
-
-colision_missile_return:				
-	MOV R0,linha_meteoro			;endereço da tabela de meteoros
-	MOV R1,[R0+R3]
-	MOV R4,15
-	CMP R1,R4						;verifica se a colisão já é possível
-	JLT next_meteor					;vai passar para o próximo meteoro
-	CALL colision_missile
-	CMP R8 , 1
-	JZ colision_missile_true
-
-next_meteor:
-	ADD R3,MOVE_NEXT_WORD
-	MOV R5,8
-	CMP R3 ,R5
-	JZ exit_missile_routine		;quando já tiver passado pelos quatro meteoros
-	JMP colision_missile_return
-
-colision_missile: 				; R0 endereco do meteorito
-	PUSH R0
-	PUSH R1
-	PUSH R2
-	PUSH R3
-	PUSH R4
-	PUSH R5
-	PUSH R6
-	PUSH R7
-
-	MOV R0,R1
-
-	MOV  R8, 0
-
-	MOV R2, [R0] 				; coordenada Y do meteorito
-	ADD  R0, MOVE_NEXT_WORD
-	MOV R1, [R0] 				; coordenada X do meteorito
-	MOV  R4, DEF_METEORO_3 				; desenho do meteorito
-
-	MOV R5, [R4] 				; largura do meteorito
-	ADD  R5,R1 					; coordenada x mais a direita do meteorito
-
-	ADD  R4, MOVE_NEXT_WORD
-	MOV R6, [R4] 				; altura do meteorito
-	ADD  R6,R2 				; coordenada y mais a baixo do meteorito
-
-	MOV R4, [POS_MISSIL_X] 				; coordenada x do missil
-	MOV R7, [POS_MISSIL_Y] 				; coordenada y do missil
-
-	CMP  R4, R1
-	JLT  exit_missile_colision
-
-	CMP  R4, R5
-	JGT  exit_missile_colision
-
-	CMP  R7, R2
-	JLT  exit_missile_colision
-
-	CMP  R7, R6 	
-	JGT  exit_missile_colision 	; testam se o missil esta fora da "caixa" em que o meteorito se insere
-
-	MOV  R8, 1
-
-exit_missile_colision:
-	POP	R7
-	POP R6
-	POP R5
-	POP R4
-	POP R3
-	POP R2
-	POP R1
-	POP R0
-	RET
-
-colision_missile_true:
-	;quando a colisão acontecer fazer alguma coisa
-	MOV R1, 1
-	MOV [SELECIONA_CENARIO_FUNDO], R1
-	JMP menu_lost_colision_missile	
-	;JMP exit_missile_routine
-
-menu_lost_colision_missile:
-	JMP menu_lost_colision_missile
-
-exit_missile_routine:
-	POP R5
-	POP R4
-	POP R3
-	POP R2
-	POP R1
-	POP R0
-	RET
-
 
 
 
 ;************************************************************************
 
-colision_meteoro_init:
+colision:
 	PUSH R1
 	PUSH R2
 	PUSH R3
@@ -492,7 +382,6 @@ colision_moeda:
 	CMP R1, R4
 	JGE test_X_moeda
 	JMP cycle
-
 test_X_moeda:
 	MOV R4, [POS_ROVER_X]
 	ADD R3, 2 
@@ -520,12 +409,7 @@ menu_lost_colision:
 	JMP menu_lost_colision
 
 handle_colision_moeda:
-	MOV R1, DISPLAY_COIN
-	MOV [INC_DEC_DISPLAY], R1
-	CALL UPDATE_DISPLAY
-	JMP handle_colision_meteoro
-
-
+	;************************************ necessario por o display a aumentar
 
 cycle:
 	MOV R8, 18
@@ -545,6 +429,18 @@ sai_colision:
 	POP R2
 	POP R1
 	RET
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 meteoro:
@@ -572,18 +468,6 @@ sai_meteoro:
 	POP R1
 	RET
 
-
-
-
-
-random_number:
-	PUSH R1
-	MOV R1,[RANDOM_NUMBER]
-	SHR R1,5
-	MOV [RANDOM_NUMBER], R1
-	POP R1
-	RET
-
 ; **********************************************************************
 ; ANIMA_METEORO - Rotina cooperativa que desenha e faz descer o meteoro
 ;			 numa dada coluna. Se chegar ao fundo, passa ao topo.
@@ -608,10 +492,8 @@ random_number:
 	MOV R8, linha_meteoro
 	MOV  R5, [R8+R6]
 	MOV  R1, [R5]	; linha em que o meteoro esta
-	;CALL random_number
-	;MOV  R2, [RANDOM_NUMBER]
-	MOV R2,R3
-	SHL  R2, 3			; multiplica o numero do meteoro por 8 para dar a coluna onde desenhar o meteoro
+	MOV  R2, R3			
+	SHL  R2, 4			; multiplica o numero do meteoro por 8 para dar a coluna onde desenhar o meteoro
 	ADD  R5, 2			; altera a posicao X do meteoro
 	MOV  [R5], R2		; altera a posicao X do meteoro
 	MOV  R6, TIPO_METEORO
@@ -760,7 +642,7 @@ UPDATE_DISPLAY:
 	PUSH R1
 	PUSH R2
 	PUSH R3
-	MOV R2,[INC_DEC_DISPLAY]
+	MOV R2,[INTERRUPCAO_ENERGIA]
 	CMP R2,0
 	JZ EXIT_UPDATE_DISPLAY
 	MOV R1, [DISPLAY_VAL]
@@ -769,7 +651,7 @@ UPDATE_DISPLAY:
 	CALL HEX_TO_DEC
 	MOV [DISPLAY], R1			; altera o display 
 	MOV R3, OFF
-	MOV [INC_DEC_DISPLAY],R3
+	MOV [INTERRUPCAO_ENERGIA],R3
 
 EXIT_UPDATE_DISPLAY:
 	POP R3
@@ -799,7 +681,6 @@ HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H) para decimal
 ; TESTA_LIMITES_DISPLAY - Testa se o valor do display  esta 
 ;				dentro dos limite estabelecidos (0-64 hexa)
 ; Argumentos:	R1 - valor do display
-;				R2 - valor a aumentar ou diminuir no display
 ;
 ; Retorna: 		R7 - 0 se ja tiver chegado ao limite, inalterado caso contrario
 ;
@@ -808,13 +689,19 @@ testa_limites_display:
 	PUSH R2
 	PUSH R5
 	PUSH R6
+	MOV R2,[INC_DEC_DISPLAY]
+	CMP R2, 0
+	JGT testa_display_min
+	JZ sai_testa_limites_display
 testa_display_min:
 	MOV R5, DISPLAY_MIN					; valor minimo do display
 	CMP R1, R5
-	JZ sai_testa_limites_display			; ja nao pode diminuir mais
+	JZ impede_movimento_display			; ja nao pode diminuir mais
 	ADD R1, R2		; valor atual do display
 	MOV [DISPLAY_VAL], R1		; altera o valor guardado do display
 	JMP sai_testa_limites_display
+impede_movimento_display:
+	ADD R1,DECREMENTACAO_DISPLAY		; impede a alteracao
 sai_testa_limites_display:
 	POP R6
 	POP R5
@@ -842,7 +729,6 @@ obtem_tecla:				; neste ciclo espera-se até uma tecla ser premida
 	JZ exit_rover
 
 move_rover:
-	CALL atraso
 	MOV R1, [POS_ROVER_Y]		; guarda a posicao Y do rover
 	MOV R2, [POS_ROVER_X]		; guarda a posicao X do rover
 	MOV R4, DEF_ROVER			; guarda a definicao do rover
@@ -861,20 +747,6 @@ exit_rover:
 	POP R2
 	POP R1
 	POP R0
-	RET
-; **********************************************************************
-; ATRASO - Executa um ciclo para implementar um atraso.
-; Argumentos:   R11 - valor que define o atraso
-;
-; **********************************************************************
-atraso:
-	PUSH	R11
-	MOV R11, ATRASO
-ciclo_atraso:
-	
-	SUB	R11, 1
-	JNZ	ciclo_atraso
-	POP	R11
 	RET
 
 ; **********************************************************************
@@ -1064,7 +936,6 @@ ciclo:
 espera_tecla:          	; neste ciclo espera-se ate uma tecla ser premida
     MOVB [R2],R0       	; ler pertiferico de saida (linhas)
     MOVB R1, [R3]      	; ler do periferico de entrada (colunas)
-	MOV [RANDOM_NUMBER],R1
     AND  R1, R5        	; elimina bits para alem dos bits 0-3
     CMP  R1, 0         	; ha tecla premida?
     MOV R6,R0          	; para poder verificar se a tecla ainda está pressionada
@@ -1107,5 +978,4 @@ end:
 	POP	R2
 	POP	R1
 	RET	
-
 

@@ -396,7 +396,7 @@ next_meteor:
 	JZ exit_colision_missile		;quando já tiver passado pelos quatro meteoros
 	JMP colision_missile_return
 
-colision_missile: 				; R0 endereco do meteorito - R3 endereco do missil 
+colision_missile: 				; R0 endereco do meteorito
 	PUSH R0
 	PUSH R1
 	PUSH R2
@@ -435,7 +435,7 @@ colision_missile: 				; R0 endereco do meteorito - R3 endereco do missil
 	JLT  colision_missile_return
 
 	CMP  R7, R6 	
-	JGT  colision_missile_return 	; testam se o missil esta dentro da "caixa" em que o meteorito se insere
+	JGT  colision_missile_return 	; testam se o missil esta fora da "caixa" em que o meteorito se insere
 
 	MOV  R8, 1
 

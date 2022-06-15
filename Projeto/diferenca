@@ -1,0 +1,187 @@
+22,23c22
+< DISPLAY_TIME	EQU 0FFFBH	; value that the interruption will make the display increase
+< DISPLAY_COIN	EQU 0000AH	; value that increases display in colision with coin	
+---
+> DISPLAY_INCREASE	EQU 0FFFBH	; value that the interruption will make the display increase
+55d53
+< INCREMENTACAO_DISPLAY	EQU 000AH  ; valor que aumenta no display caso atinja uma moeda
+92,94d89
+< MOVE_NEXT_WORD		EQU 2		;passa para a próxima word da tabela
+< MOVE_NEXT_TWO_WORDS	EQU 4		;passa duas palavras para a frente
+< 
+279,280c274
+< 	CALL colision_meteoro_init
+< 	;CALL colision_missile_init
+---
+> 	CALL colision
+313,353d306
+< 	MOV R1, DISPLAY_TIME
+< 	MOV [INC_DEC_DISPLAY],R1
+< 	POP R1
+< 	RFE					; Return From Exception (diferente do RET)
+< 
+< 
+< ; **********************************************************************
+< ; Missile_colision - Verifies if the missile colides with the meteor or 
+< ;					the coin
+< ; **********************************************************************
+< colision_missile_init:
+< 	POP R0
+< 	POP	R1
+< 	POP R2
+< 	POP R3
+< 	POP R4
+< 	POP R5
+< 	JMP colision_missile_return
+< 
+< 
+< colision_missile_return:
+< 	MOV R3 , 0					
+< 	MOV R0,linha_meteoro			;endereço da tabela de meteoros
+< 	MOV R1,[R0+R3]
+< 	MOV R4,15
+< 	CMP R1,R4						;verifica se a colisão já é possível
+< 	JLT next_meteor					;vai passar para o próximo meteoro
+< 	CALL colision_missile
+< 	CMP R8 , 1
+< 	JZ colision_missile_true
+< 
+< next_meteor:
+< 	ADD R3,MOVE_NEXT_WORD
+< 	MOV R5,8
+< 	CMP R3 ,R5
+< 	JZ exit_missile_routine		;quando já tiver passado pelos quatro meteoros
+< 	JMP colision_missile_return
+< 
+< colision_missile: 				; R0 endereco do meteorito
+< 	PUSH R0
+< 	PUSH R1
+355,399c308,311
+< 	PUSH R3
+< 	PUSH R4
+< 	PUSH R5
+< 	PUSH R6
+< 	PUSH R7
+< 
+< 	MOV R0,R1
+< 
+< 	MOV  R8, 0
+< 
+< 	MOV R2, [R0] 				; coordenada Y do meteorito
+< 	ADD  R0, MOVE_NEXT_WORD
+< 	MOV R1, [R0] 				; coordenada X do meteorito
+< 	MOV  R4, DEF_METEORO_3 				; desenho do meteorito
+< 
+< 	MOV R5, [R4] 				; largura do meteorito
+< 	ADD  R5,R1 					; coordenada x mais a direita do meteorito
+< 
+< 	ADD  R4, MOVE_NEXT_WORD
+< 	MOV R6, [R4] 				; altura do meteorito
+< 	ADD  R6,R2 				; coordenada y mais a baixo do meteorito
+< 
+< 	MOV R4, [POS_MISSIL_X] 				; coordenada x do missil
+< 	MOV R7, [POS_MISSIL_Y] 				; coordenada y do missil
+< 
+< 	CMP  R4, R1
+< 	JLT  exit_missile_colision
+< 
+< 	CMP  R4, R5
+< 	JGT  exit_missile_colision
+< 
+< 	CMP  R7, R2
+< 	JLT  exit_missile_colision
+< 
+< 	CMP  R7, R6 	
+< 	JGT  exit_missile_colision 	; testam se o missil esta fora da "caixa" em que o meteorito se insere
+< 
+< 	MOV  R8, 1
+< 
+< exit_missile_colision:
+< 	POP	R7
+< 	POP R6
+< 	POP R5
+< 	POP R4
+< 	POP R3
+---
+> 	MOV R1, ON;
+> 	MOV [INTERRUPCAO_ENERGIA],R1
+> 	MOV R2, DISPLAY_INCREASE;
+> 	MOV [INC_DEC_DISPLAY], R2
+402,423c314
+< 	POP R0
+< 	RET
+< 
+< colision_missile_true:
+< 	;quando a colisão acontecer fazer alguma coisa
+< 	MOV R1, 1
+< 	MOV [SELECIONA_CENARIO_FUNDO], R1
+< 	JMP menu_lost_colision_missile	
+< 	;JMP exit_missile_routine
+< 
+< menu_lost_colision_missile:
+< 	JMP menu_lost_colision_missile
+< 
+< exit_missile_routine:
+< 	POP R5
+< 	POP R4
+< 	POP R3
+< 	POP R2
+< 	POP R1
+< 	POP R0
+< 	RET
+< 
+---
+> 	RFE					; Return From Exception (diferente do RET)
+429c320
+< colision_meteoro_init:
+---
+> colision:
+494d384
+< 
+522,526c412
+< 	MOV R1, DISPLAY_COIN
+< 	MOV [INC_DEC_DISPLAY], R1
+< 	CALL UPDATE_DISPLAY
+< 
+< 
+---
+> 	;************************************ necessario por o display a aumentar
+547a434,445
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+747c645
+< 	MOV R2,[INC_DEC_DISPLAY]
+---
+> 	MOV R2,[INTERRUPCAO_ENERGIA]
+756c654
+< 	MOV [INC_DEC_DISPLAY],R3
+---
+> 	MOV [INTERRUPCAO_ENERGIA],R3
+786d683
+< ;				R2 - valor a aumentar ou diminuir no display
+791a689
+> 	PUSH R2
+793a692,695
+> 	MOV R2,[INC_DEC_DISPLAY]
+> 	CMP R2, 0
+> 	JGT testa_display_min
+> 	JZ sai_testa_limites_display
+797c699
+< 	JZ sai_testa_limites_display			; ja nao pode diminuir mais
+---
+> 	JZ impede_movimento_display			; ja nao pode diminuir mais
+800a703,704
+> impede_movimento_display:
+> 	ADD R1,DECREMENTACAO_DISPLAY		; impede a alteracao
+1077d980
+< 
