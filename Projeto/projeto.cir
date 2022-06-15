@@ -10,14 +10,14 @@
   "primary screen width" : 1920,
   "primary screen height" : 1080,
   "window" : {
-    "X absolute" : -632,
-    "Y absolute" : 6,
-    "X relative" : -632,
-    "Y relative" : 6,
-    "width" : 2420,
-    "height" : 1100,
+    "X absolute" : -8,
+    "Y absolute" : -8,
+    "X relative" : -8,
+    "Y relative" : -8,
+    "width" : 1936,
+    "height" : 1066,
     "leftRightDividerLocation" : 295,
-    "topBottomDividerLocation" : 1027
+    "topBottomDividerLocation" : 882
   },
   "connections" : [ {
     "className" : "Connection",

@@ -8,27 +8,13 @@
 ;		- Joao Mestre 102779
 ;		- Rodrigo Moreira 103440
 ;
-; * Modulo:    grupo04.asm
-;
-; * Descrição: Este programa tem como objetivo reproduzir um esboco daquilo que
-;	sera um jogo no estilo space invaders.
-;	Nesta fase do projeto as seguintes features estao implementadas:
-;		-implementacao de um teclado
-;		-implementacao de um display (3 digitos) em hexadecimal
-;		-implementacao de um display grafico (media center)
-;		-imagem de fundo
-;		-design do rover
-;		-design do meteoro
-;		-movimento continuo do rover premindo a tecla 4 (esquerda) ou tecla 6 (direita)
-;		-movimento com efeito sonoro do meteoro clicando na tecla 9
-;		-incremento ou decremento do display hexadecimal premindo a tecla 3 
-;		ou 7 respetivamente
 ;
 ; *********************************************************************************
 
 ; *********************************************************************************
-; * Constantes
+; Constantes
 ; *********************************************************************************
+
 TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
@@ -113,9 +99,10 @@ MUSTARD	EQU 0FFD5H		; cor mostarda
 DRKBLUE EQU 0F16BH		; cor azul escuro
 
 ; *********************************************************************************
-; * Dados 
+; Dados 
 ; *********************************************************************************
-PLACE 1400H
+
+PLACE 2600H
 POS_ROVER_X:	WORD	0000H; endereco de memoria da coluna do rover
 POS_ROVER_Y:	WORD	0000H; endereco de memoria da linha do rover
 POS_MISSIL_X:	WORD	0000H;
@@ -128,7 +115,7 @@ INTERRUPCAO_ENERGIA: WORD 0000H; endereço de memória do valor de ativação da
 MISSIL_NUMBER:	WORD 0000H; adress of the number of missils in screen
 PRESSED_KEY:	WORD 0000H; Pressed key
 
-PLACE 1000H
+PLACE 1600H
 
 pilha:
 	STACK 100H			; espaco reservado para a pilha 
@@ -241,15 +228,16 @@ cord_3:
 	WORD 0					;tipo de meteoro
 
 linha_meteoro:
-	WORD cord_0				; meteoro 1 
-	WORD cord_1				; meteoro 2 
-	WORD cord_2				; meteoro 3 
-	WORD cord_3				; meteoro 4 
+	WORD cord_0				; meteoro 0 
+	WORD cord_1				; meteoro 1 
+	WORD cord_2				; meteoro 2 
+	WORD cord_3				; meteoro 3 
 
 ; *********************************************************************************
-; * Codigo
+; Codigo
 ; *********************************************************************************
-PLACE   0                     ; o codigo tem de comecar em 0000H
+
+PLACE   0H                   ; o codigo tem de comecar em 0000H
 inicio:
 	MOV  SP, SP_inicial						; inicializa SP para a palavra a seguir a ultima da pilha 
 	MOV  BTE, tab							; inicializa BTE (registo de Base da Tabela de Exce��es)
@@ -283,7 +271,7 @@ main:
 	CALL UPDATE_DISPLAY
 	CALL Missil
 	CALL meteoro
-	;CALL colision
+	CALL colision
 	JMP main
 
 ; **********************************************************************
@@ -335,43 +323,106 @@ colision:
 	PUSH R3
 	PUSH R4
 	PUSH R5
+	PUSH R6
+	PUSH R7
+	PUSH R8
 	PUSH R9
 	MOV R9, 0	; iteração
+
 colision_main:
-	MOV R3, cord_0
-	ADD R3, R9
-	ADD R3, 4
-	CMP R3, TIPO_METEORO
+	MOV R3, cord_0 		; tabela do objeto 0
+	MOV R1, 15			
+	CMP R3, R1			; nao vale a pena comparar se o objeto nao estiver ainda grande
+	JLT cycle
+	ADD R3, R9			; passa para a tabela do objeto correto
+	ADD R3, 4			; chegar ao tipo de objeto
+	MOV R6, [R3]
+	CMP R6, TIPO_METEORO	
 	JZ colision_meteoro
-	JMP sai_colision
+	JMP colision_moeda
 
 colision_meteoro:
-	MOV R1, [POS_ROVER_Y]
-	MOV R4, DEF_METEORO_3
-	ADD R4, 2
-	MOV R5, [R4]
-	ADD R1, R5
+	SUB R3, 4		; volta a posicao Y
+	MOV R1, [R3]	; R1 = pos Y do meteoro
+	MOV R6, DEF_METEORO_3	; vai buscar o meteoro
+	ADD R6, 2				; vai buscar a altura do meteoro
+	MOV R5, [R6]			; R5 = altura do meteoro
+	ADD R1, R5		; R1 passa a ser a linha de baixo do meteoro
 	MOV R4, [POS_ROVER_Y]
 	CMP R1, R4
-	JZ handle_colision_meteoro
+	JGE test_X_meteoro
+	JMP cycle
+test_X_meteoro:
+	MOV R4, [POS_ROVER_X]
+	ADD R3, 2 
+	MOV R7, [R3] ; posicao X do meteoro
+	MOV R6, [DEF_METEORO_3] ; largura do meteoro
+	
+	ADD R7, R6	; posicao direita X do meteoro
+	CMP R4, R7	; ve se a posicao do rover e maior que o limite direito do meteoro
+	JGT cycle
 
+	MOV R4, [POS_ROVER_X]
+	MOV R7, [R3]	; posicao X do meteoro
+	MOV R6, [DEF_ROVER]
+	ADD R4, R6
+	CMP R4, R7	; ve se o limite direito do rover e menor que o a posicao do meteoro
+	JLT cycle
+	
+	JMP handle_colision_meteoro
 
 colision_moeda:
+	SUB R3, 4		; volta a posicao Y
+	MOV R1, [R3]	; R1 = pos Y da moeda
+	MOV R6, DEF_MOEDA_3	; vai buscar a moeda
+	ADD R6, 2				; vai buscar a altura da moeda
+	MOV R5, [R6]			; R5 = altura da moeda
+	ADD R1, R5		; R1 passa a ser a linha de baixo da moeda
+	MOV R4, [POS_ROVER_Y]
+	CMP R1, R4
+	JGE test_X_moeda
+	JMP cycle
+test_X_moeda:
+	MOV R4, [POS_ROVER_X]
+	ADD R3, 2 
+	MOV R7, [R3] ; posicao X da moeda
+	MOV R6, [DEF_MOEDA_3] ; largura da moeda
+	
+	ADD R7, R6	; posicao direita X da moeda
+	CMP R4, R7	; ve se a posicao do rover e maior que o limite direito da moeda
+	JGT cycle
 
+	MOV R4, [POS_ROVER_X]
+	MOV R7, [R3]	; posicao X da moeda
+	MOV R6, [DEF_ROVER]
+	ADD R4, R6
+	CMP R4, R7	; ve se o limite direito do rover e menor que o a posicao da moeda
+	JLT cycle
 
 
 handle_colision_meteoro:
 	MOV R1, 1
 	MOV [SELECIONA_CENARIO_FUNDO], R1
 	JMP menu_lost_colision	
+
+menu_lost_colision:
+	JMP menu_lost_colision
+
+handle_colision_moeda:
+	;************************************ necessario por o display a aumentar
+
 cycle:
 	MOV R8, 18
-	CMP R9, R8
+	CMP R9, R8	; se ja tiver feito o ultimo objeto
 	JZ sai_colision
-	ADD R9, 6
+	ADD R9, 6	; para passar para a table de posicoes correta
 	JMP colision_main
+
 sai_colision:
 	POP R9
+	POP R8
+	POP R7
+	POP R6
 	POP R5
 	POP R4
 	POP R3
@@ -380,8 +431,6 @@ sai_colision:
 	RET
 
 
-menu_lost_colision:
-	JMP menu_lost_colision
 
 
 
@@ -392,13 +441,7 @@ menu_lost_colision:
 
 
 
-; **********************************************************************
-; ANIMA_METEORO - Rotina cooperativa que desenha e faz descer o meteoro
-;			 numa dada coluna. Se chegar ao fundo, passa ao topo.
-;			 A linha em que o byte � escrito � guardada na variavel linha_barra, que �
-;			 uma tabela de quatro vari�veis simples, uma para cada barra
-; Argumentos: R3 - Numero do meteoro (0 a 3)
-; **********************************************************************
+
 
 meteoro:
 	PUSH R1
@@ -425,6 +468,15 @@ sai_meteoro:
 	POP R1
 	RET
 
+; **********************************************************************
+; ANIMA_METEORO - Rotina cooperativa que desenha e faz descer o meteoro
+;			 numa dada coluna. Se chegar ao fundo, passa ao topo.
+;			 A linha em que o byte � escrito � guardada na variavel linha_barra, que �
+;			 uma tabela de quatro vari�veis simples, uma para cada barra
+; Argumentos: R3 - Numero do meteoro (0 a 3)
+; **********************************************************************
+
+
  anima_meteoro:
 	PUSH R1
 	PUSH R2
@@ -442,6 +494,12 @@ sai_meteoro:
 	MOV  R1, [R5]	; linha em que o meteoro esta
 	MOV  R2, R3			
 	SHL  R2, 4			; multiplica o numero do meteoro por 8 para dar a coluna onde desenhar o meteoro
+	ADD  R5, 2			; altera a posicao X do meteoro
+	MOV  [R5], R2		; altera a posicao X do meteoro
+	MOV  R6, TIPO_METEORO
+	ADD R5, 2
+	MOV [R5], R6 
+	SUB R5, 4			; volta o R5 ao Y
 	MOV  R4, DEF_METEORO_3
 	CALL apaga_boneco		; apaga o meteoro do ecra
 	ADD  R1, 1			; passa a linha abaixo
@@ -674,7 +732,6 @@ move_rover:
 	MOV R1, [POS_ROVER_Y]		; guarda a posicao Y do rover
 	MOV R2, [POS_ROVER_X]		; guarda a posicao X do rover
 	MOV R4, DEF_ROVER			; guarda a definicao do rover
-	CALL atraso
 	CALL apaga_boneco		; apaga o rover na sua posicao corrente
 
 coluna_seguinte:
@@ -799,20 +856,7 @@ escreve_pixel:
 	RET
 
 
-; **********************************************************************
-; ATRASO - Executa um ciclo para implementar um atraso.
-; Argumentos:   R11 - valor que define o atraso
-;
-; **********************************************************************
-atraso:
-	PUSH	R11
-	MOV R11, ATRASO
-ciclo_atraso:
-	
-	SUB	R11, 1
-	JNZ	ciclo_atraso
-	POP	R11
-	RET
+
 
 ; **********************************************************************
 ; TESTA_LIMITES - Testa se o rover chegou aos limites do ecra e nesse caso
