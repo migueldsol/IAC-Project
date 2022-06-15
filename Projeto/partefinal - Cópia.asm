@@ -99,6 +99,9 @@ ALTURA_EXPLOSAO		EQU 5		; altura da explosao
 LARGURA_MISSIL		EQU 1		; largura do missil
 ALTURA_MISSIL		EQU 1		; altura do missil
 
+MOVE_NEXT_WORD		EQU 2		;passa para a próxima word da tabela
+MOVE_NEXT_TWO_WORDS	EQU 4		;passa duas palavras para a frente
+
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
 WHITE 	EQU 0FFFFH		; cor branca
@@ -225,28 +228,28 @@ tab:
 	WORD rot_int_0			; rotina de atendimento da interrupção 0
 	WORD rot_int_1			; rotina de atendimento da interrupção 1
 	WORD rot_int_2			; rotina de atendimento da interrupção 2
-meteoro1:
-	WORD 0					;posicao x
-	WORD 0					;posicao y
+cord_0:
+	WORD 0					;posicao Y
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
-meteoro2:
-	WORD 0					;posicao x
-	WORD 0					;posicao y
+cord_1:
+	WORD 0					;posicao Y
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
-meteoro3:
-	WORD 0					;posicao x
-	WORD 0					;posicao y
+cord_2:
+	WORD 0					;posicao Y
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
-meteoro4:
-	WORD 0					;posicao x
-	WORD 0					;posicao y
+cord_3:
+	WORD 0					;posicao Y
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
 
 linha_meteoro:
-	WORD meteoro1				; meteoro 1 
-	WORD meteoro2				; meteoro 2 
-	WORD meteoro3				; meteoro 3 
-	WORD meteoro4				; meteoro 4 
+	WORD cord_0				; meteoro 0 
+	WORD cord_1				; meteoro 1 
+	WORD cord_2				; meteoro 2 
+	WORD cord_3				; meteoro 3 
 
 ; *********************************************************************************
 ; * Codigo
@@ -372,7 +375,28 @@ free_end:
 ; Missile_colision - Verifies if the missile colides with the meteor or 
 ;					the coin
 ; **********************************************************************
-Missile_Colision: 				; R0 endereco do meteorito - R3 endereco do missil 
+colision_missile_init:
+	POP R0
+	POP	R1
+	POP R2
+	POP R3
+	JMP colision_missile_return
+
+
+colision_missile_return:
+	MOV R3 , 0					
+	MOV R0,linha_meteoro			;endereço da tabela de meteoros
+	MOV R1,[R0+R3]					
+	CMP R1,15						;verifica se a colisão já é possível
+	JLT next_meteor					;vai passar para o próximo meteoro
+
+next_meteor:
+	ADD R3,MOVE_NEXT_WORD
+	CMP R3 , 8
+	JZ exit_colision_missile		;quando já tiver passado pelos quatro meteoros
+	JMP colision_missile_return
+
+colision_missile: 				; R0 endereco do meteorito - R3 endereco do missil 
 	PUSH R0
 	PUSH R1
 	PUSH R2
@@ -382,38 +406,36 @@ Missile_Colision: 				; R0 endereco do meteorito - R3 endereco do missil
 	PUSH R6
 	PUSH R7
 
+	MOV R0,R1
+
 	MOV  R8, 0
 
-	MOVB R1, [R0] 				; coordenada x do meteorito
-	ADD  R0, 1
-	MOVB R2, [R0] 				; coordenada y do meteorito
-	ADD  R0, 1
-	MOV  R4, [R0] 				; desenho do meteorito
-	ADD  R4, NEXT_WORD
+	MOV R2, [R0] 				; coordenada Y do meteorito
+	ADD  R0, MOVE_NEXT_WORD
+	MOV R1, [R0] 				; coordenada X do meteorito
+	MOV  R4, DEF_METEORO_3 				; desenho do meteorito
 
-	MOVB R5, [R4] 				; largura do meteorito
-	ADD  R5, R1
-	SUB  R5, 1 					; coordenada x mais a esquerda do meteorito
+	MOV R5, [R4] 				; largura do meteorito
+	ADD  R5,R1 					; coordenada x mais a direita do meteorito
 
-	ADD  R4, 1
-	MOVB R6, [R4] 				; altura do meteorito
-	ADD  R6, R2
-	SUB  R6, 1 					; coordenada y mais a baixo do meteorito
+	ADD  R4, MOVE_NEXT_WORD
+	MOV R6, [R4] 				; altura do meteorito
+	ADD  R6,R2 				; coordenada y mais a baixo do meteorito
 
 	MOV R4, [POS_MISSIL_X] 				; coordenada x do missil
 	MOV R7, [POS_MISSIL_Y] 				; coordenada y do missil
 
 	CMP  R4, R1
-	JLT  missile_Colision_Return
+	JLT  colision_missile_return
 
 	CMP  R4, R5
-	JGT  missile_Colision_Return
+	JGT  colision_missile_return
 
 	CMP  R7, R2
-	JLT  missile_Colision_Return
+	JLT  colision_missile_return
 
 	CMP  R7, R6 	
-	JGT  missile_Colision_Return 	; testam se o missil esta dentro da "caixa" em que o meteorito se insere
+	JGT  colision_missile_return 	; testam se o missil esta dentro da "caixa" em que o meteorito se insere
 
 	MOV  R8, 1
 

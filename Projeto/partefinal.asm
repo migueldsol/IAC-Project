@@ -19,7 +19,8 @@ TEC_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 DISPLAY				EQU 0A000H 	; endereço do display
-DISPLAY_INCREASE	EQU 0FFFBH	; value that the interruption will make the display increase
+DISPLAY_TIME	EQU 0FFFBH	; value that the interruption will make the display increase
+DISPLAY_COIN
 ON					EQU 0001H	; activate the update_display routine
 OFF					EQU 0000H	; activate the update_display routine
 MASCARA_DISPLAY		EQU 0FFFH	; isolar os 12 bits de menor peso, ao ler o valor do display
@@ -51,6 +52,7 @@ DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
 DECREMENTACAO_DISPLAY	EQU 5	; valor que vai ser subtraido periodicamente
+INCREMENTACAO_DISPLAY	EQU 000AH  ; valor que aumenta no display caso atinja uma moeda
 HEXTODEC 			EQU 0AH
 
 ATRASO			EQU	0400H		; atraso para limitar a velocidade de movimento do boneco
@@ -271,7 +273,7 @@ main:
 	CALL UPDATE_DISPLAY
 	CALL Missil
 	CALL meteoro
-	CALL colision
+	CALL colision_meteoro_init
 	JMP main
 
 ; **********************************************************************
@@ -304,12 +306,8 @@ rot_int_1:
 ; **********************************************************************
 rot_int_2:
 	PUSH R1
-	PUSH R2
-	MOV R1, ON;
-	MOV [INTERRUPCAO_ENERGIA],R1
-	MOV R2, DISPLAY_INCREASE;
-	MOV [INC_DEC_DISPLAY], R2
-	POP R2
+	MOV R1, DISPLAY_TIME
+	MOV [INC_DEC_DISPLAY],R1
 	POP R1
 	RFE					; Return From Exception (diferente do RET)
 
@@ -317,7 +315,7 @@ rot_int_2:
 
 ;************************************************************************
 
-colision:
+colision_meteoro_init:
 	PUSH R1
 	PUSH R2
 	PUSH R3
@@ -382,6 +380,7 @@ colision_moeda:
 	CMP R1, R4
 	JGE test_X_moeda
 	JMP cycle
+
 test_X_moeda:
 	MOV R4, [POS_ROVER_X]
 	ADD R3, 2 
@@ -409,7 +408,11 @@ menu_lost_colision:
 	JMP menu_lost_colision
 
 handle_colision_moeda:
-	;************************************ necessario por o display a aumentar
+	MOV R1, DISPLAY_COIN
+	MOV [INC_DEC_DISPLAY], R1
+	CALL UPDATE_DISPLAY
+
+
 
 cycle:
 	MOV R8, 18
@@ -429,18 +432,6 @@ sai_colision:
 	POP R2
 	POP R1
 	RET
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 meteoro:
@@ -642,7 +633,7 @@ UPDATE_DISPLAY:
 	PUSH R1
 	PUSH R2
 	PUSH R3
-	MOV R2,[INTERRUPCAO_ENERGIA]
+	MOV R2,[INC_DEC_DISPLAY]
 	CMP R2,0
 	JZ EXIT_UPDATE_DISPLAY
 	MOV R1, [DISPLAY_VAL]
@@ -651,7 +642,7 @@ UPDATE_DISPLAY:
 	CALL HEX_TO_DEC
 	MOV [DISPLAY], R1			; altera o display 
 	MOV R3, OFF
-	MOV [INTERRUPCAO_ENERGIA],R3
+	MOV [INC_DEC_DISPLAY],R3
 
 EXIT_UPDATE_DISPLAY:
 	POP R3
@@ -681,27 +672,21 @@ HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H) para decimal
 ; TESTA_LIMITES_DISPLAY - Testa se o valor do display  esta 
 ;				dentro dos limite estabelecidos (0-64 hexa)
 ; Argumentos:	R1 - valor do display
+;				R2 - valor a aumentar ou diminuir no display
 ;
 ; Retorna: 		R7 - 0 se ja tiver chegado ao limite, inalterado caso contrario
 ;
 ; **********************************************************
 testa_limites_display:
-	PUSH R2
 	PUSH R5
 	PUSH R6
-	MOV R2,[INC_DEC_DISPLAY]
-	CMP R2, 0
-	JGT testa_display_min
-	JZ sai_testa_limites_display
 testa_display_min:
 	MOV R5, DISPLAY_MIN					; valor minimo do display
 	CMP R1, R5
-	JZ impede_movimento_display			; ja nao pode diminuir mais
+	JZ sai_testa_limites_display			; ja nao pode diminuir mais
 	ADD R1, R2		; valor atual do display
 	MOV [DISPLAY_VAL], R1		; altera o valor guardado do display
 	JMP sai_testa_limites_display
-impede_movimento_display:
-	ADD R1,DECREMENTACAO_DISPLAY		; impede a alteracao
 sai_testa_limites_display:
 	POP R6
 	POP R5
