@@ -10,14 +10,14 @@
   "primary screen width" : 1920,
   "primary screen height" : 1080,
   "window" : {
-    "X absolute" : -17,
-    "Y absolute" : 0,
-    "X relative" : -17,
-    "Y relative" : 0,
-    "width" : 1938,
-    "height" : 1058,
+    "X absolute" : -8,
+    "Y absolute" : -8,
+    "X relative" : -8,
+    "Y relative" : -8,
+    "width" : 1936,
+    "height" : 1066,
     "leftRightDividerLocation" : 295,
-    "topBottomDividerLocation" : 840
+    "topBottomDividerLocation" : 848
   },
   "connections" : [ {
     "className" : "Connection",
@@ -717,11 +717,7 @@
     "moduleDelay" : 5,
     "positionX" : 258,
     "positionY" : 113,
-    "simGuiVisibleInSimulation" : true,
-    "simGuiXRelative" : -11,
-    "simGuiYRelative" : 11,
-    "simGuiWidth" : 798,
-    "simGuiHeight" : 886,
+    "simGuiVisibleInSimulation" : false,
     "clockPeriod" : 200,
     "startAutomatically" : false,
     "simulationMaster" : true,
@@ -1514,10 +1510,28 @@
     "defaultPenColor" : 51063,
     "image paths" : [ "background 0.png", "trial.png", "trial coin.png" ],
     "sounds/videos settings" : [ {
-      "filePathName" : "XPerror_soundeffect(mp4).mp4",
+      "filePathName" : "Sound Effect _ Piu Piu _ Pew Pew.mp4",
       "relative sound volume" : 1.0,
-      "relative start time" : 0.0,
-      "relative stop time" : 1.0,
+      "relative start time" : 0.12,
+      "relative stop time" : 0.39,
+      "playAsClip" : false
+    }, {
+      "filePathName" : "Mario Jump - Gaming Sound Effect (HD).mp4",
+      "relative sound volume" : 1.0,
+      "relative start time" : 0.21,
+      "relative stop time" : 0.48,
+      "playAsClip" : false
+    }, {
+      "filePathName" : "Wrong Sound Effect.mp4",
+      "relative sound volume" : 1.0,
+      "relative start time" : 0.31,
+      "relative stop time" : 0.73,
+      "playAsClip" : false
+    }, {
+      "filePathName" : "bye sound effect.mp4",
+      "relative sound volume" : 1.0,
+      "relative start time" : 0.19,
+      "relative stop time" : 0.41,
       "playAsClip" : false
     } ],
     "addressable data" : {
@@ -1641,7 +1655,7 @@
     "simGuiXRelative" : 908,
     "simGuiYRelative" : 746,
     "simGuiWidth" : 346,
-    "simGuiHeight" : 236,
+    "simGuiHeight" : 282,
     "clockPeriod" : 300,
     "startAutomatically" : true,
     "simulationMaster" : false,
@@ -1668,7 +1682,7 @@
     "simGuiXRelative" : 1313,
     "simGuiYRelative" : 745,
     "simGuiWidth" : 346,
-    "simGuiHeight" : 236,
+    "simGuiHeight" : 282,
     "clockPeriod" : 200,
     "startAutomatically" : true,
     "simulationMaster" : false,
@@ -1695,7 +1709,7 @@
     "simGuiXRelative" : 1500,
     "simGuiYRelative" : 521,
     "simGuiWidth" : 346,
-    "simGuiHeight" : 236,
+    "simGuiHeight" : 282,
     "clockPeriod" : 3000,
     "startAutomatically" : true,
     "simulationMaster" : false,

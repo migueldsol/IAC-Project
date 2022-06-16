@@ -52,7 +52,7 @@ MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
 MAX_COLUNA			EQU  63   	; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 0F80H	; numero da linha mais em baixo
-MAX_linha_objeto 	EQU 31		; numero maximo que o meteoro pode atingir de forma a nao afetar o rover
+MAX_linha_objeto 	EQU 32		; numero maximo que o meteoro pode atingir de forma a nao afetar o rover
 DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
@@ -99,6 +99,15 @@ TIPO_INDEFINIDO		EQU 0
 MOVE_NEXT_WORD		EQU 2		;passa para a próxima word da tabela
 MOVE_NEXT_TWO_WORDS	EQU 4		;passa duas palavras para a frente
 
+STANDARD_BACKRGOUND EQU 0
+LOSE_CONTACT_METEOR	EQU 1
+TOUCH_COIN			EQU 2
+
+SOM_DISPARO			EQU 0
+SOM_TOCAR_MOEDA		EQU 1
+SOM_ACERTAR_MOEDA	EQU 2
+SOM_ACERTAR_METEORO	EQU 3
+
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
 WHITE 	EQU 0FFFFH		; cor branca
@@ -109,6 +118,7 @@ BROWN	EQU 0F840H		; cor castanha
 YELLOW	EQU 0FFF0H		; cor amarela 
 MUSTARD	EQU 0FFD5H		; cor mostarda
 DRKBLUE EQU 0F16BH		; cor azul escuro
+ORANGE 	EQU 0FFB2H		; cor laranja
 
 ; *********************************************************************************
 ; Dados 
@@ -209,9 +219,9 @@ DEF_EXPLOSAO:			; tabela que define a explosao (cor, largura, altura, pixels)
 	WORD		LARGURA_EXPLOSAO
 	WORD		ALTURA_EXPLOSAO
 	WORD		0, YELLOW, 0, YELLOW, 0
-	WORD		YELLOW, BROWN, RED, BROWN, YELLOW
+	WORD		YELLOW, ORANGE, RED, ORANGE, YELLOW
 	WORD		0, RED, BLUE, RED, 0
-	WORD		YELLOW, BROWN, RED, BROWN, YELLOW
+	WORD		YELLOW, ORANGE, RED, ORANGE, YELLOW
 	WORD		0, YELLOW, 0, YELLOW, 0
 
 DEF_MISSIL:				; tabela que define o missil (cor, largura, altura, pixels)
@@ -366,6 +376,8 @@ handle_colision_missile_meteor:
 	CALL apaga_boneco
 	MOV R4, DEF_EXPLOSAO
 	CALL desenha_boneco
+	MOV R1, SOM_ACERTAR_METEORO
+	MOV [TOCA_SOM], R1
 	ADD R0, 2
 	MOV R4, TIPO_EXPLOSAO
 	MOV [R0], R4
@@ -375,8 +387,25 @@ handle_colision_missile_meteor:
 
 handle_colision_missile_coin:
 	;quando a colisão acontecer fazer alguma coisa
-	MOV R1, 2
-	MOV [SELECIONA_CENARIO_FUNDO], R1
+	MOV R1, [POS_MISSIL_Y]
+	MOV R2, [POS_MISSIL_X]
+	MOV R4, DEF_MISSIL
+	CALL apaga_boneco
+	MOV R1, 0
+	MOV [MISSIL_NUMBER], R1
+	MOV R1, [R0]
+	ADD R0, 2
+	MOV R2, [R0]
+	MOV R4, DEF_METEORO_3
+	CALL apaga_boneco
+	MOV R4, DEF_EXPLOSAO
+	CALL desenha_boneco
+	MOV R1, SOM_ACERTAR_MOEDA
+	MOV [TOCA_SOM], R1
+	ADD R0, 2
+	MOV R4, TIPO_EXPLOSAO
+	MOV [R0], R4
+	JMP exit_missile_routine
 menu_lost_colision_coin:
 	JMP menu_lost_colision_coin	
 	;JMP exit_missile_routine
@@ -507,6 +536,7 @@ test_X_meteoro:
 	MOV R7, [R3]	; posicao X do meteoro
 	MOV R6, [DEF_ROVER]
 	ADD R4, R6
+	SUB R4, 1
 	CMP R4, R7	; ve se o limite direito do rover e menor que o a posicao do meteoro
 	JLT cycle
 	
@@ -552,6 +582,8 @@ menu_lost_colision_meteor:
 	JMP menu_lost_colision_meteor
 
 handle_colision_moeda:
+	MOV R1, SOM_TOCAR_MOEDA
+	MOV [TOCA_SOM], R1
 	MOV R1,2
 	MOV [SELECIONA_CENARIO_FUNDO], R1
 	JMP menu_lost_coin
@@ -697,8 +729,8 @@ random_tipo_end:
 	CMP R3, TIPO_INDEFINIDO	
 	JZ object_init			; se o objeto ainda nao tiver tipo entao deve ser criado
 
-	CMP R3, TIPO_EXPLOSAO
-	JZ explosao
+	CMP R3, TIPO_EXPLOSAO	
+	JZ explosao				; se o objeto for uma explosao
 
 	ADD  R1, 1				; passa a linha abaixo
 	MOV  R4, MAX_linha_objeto
@@ -717,20 +749,22 @@ object_init:
 	MOV R1, 0FFFFH			; 
 	MOV [R5], R1			; poe na linha -1 para uma animacao mais fluida
 	CALL random_column		; obtem uma coluna em que desenhar o objeto
-	MOV R2, [RANDOM_NUMBER]
+	MOV R2, [RANDOM_NUMBER]	
 	ADD R5, 2
 	MOV [R5], R2
-	CALL random_tipo
+	CALL random_tipo		; obtem um tipo para o objeto
 	MOV R4, [RANDOM_NUMBER]
 	ADD R5, 2
-	MOV [R5], R4
-	JMP sai_anima_meteoro
-explosao:
+	MOV [R5], R4			
+	JMP sai_anima_meteoro	; desenha o objeto no ciclo seguinte para um animacao mais fluida
+
+explosao:					; a explosao deve durar um ciclo e permitir a criacao de um objeto novo
 	MOV R4, DEF_EXPLOSAO
-	CALL apaga_boneco
-	MOV R3, TIPO_INDEFINIDO
+	CALL apaga_boneco		; apaga a explosao
+	MOV R3, TIPO_INDEFINIDO	
 	MOV [R5], R3
 	JMP sai_anima_meteoro
+
 move:	
 	SUB R5, 4			; R5 volta a ser o endereco da pos Y
 	MOV  [R5], R1		; atualiza na tabela a linha em que esta o meteoro
@@ -875,6 +909,8 @@ Missil:
 	JMP exit_missil
 
 Draw_missil:
+	MOV R2, SOM_DISPARO
+	MOV [TOCA_SOM], R2
 	MOV R2, [POS_ROVER_X]
 	MOV R1, [POS_ROVER_Y]
 	SUB R1, 1
