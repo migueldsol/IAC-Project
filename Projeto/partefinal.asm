@@ -20,7 +20,9 @@ TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 DISPLAY				EQU 0A000H 	; endereço do display
 DISPLAY_TIME	EQU 0FFFBH	; value that the interruption will make the display increase
-DISPLAY_COIN	EQU 0000AH	; value that increases display in colision with coin	
+DISPLAY_COIN	EQU 0000AH	; value that increases display in colision with coin
+DISPLAY_METEOR EQU 00005H   ; value that increases display of missile colision with coin		
+DISPLAY_MISSIL EQU 0FFFBH	; value that decreases display by the fire of a missil
 
 
 DEFINE_LINHA    		EQU 600AH      	; endereco do comando para definir a linha
@@ -367,6 +369,8 @@ next_objeto:
 
 handle_colision_missile_meteor:
 	;quando a colisão acontecer fazer alguma coisa
+	MOV R1, DISPLAY_METEOR
+	MOV [INC_DEC_DISPLAY], R1
 	MOV R1, [POS_MISSIL_Y]
 	MOV R2, [POS_MISSIL_X]
 	MOV R4, DEF_MISSIL
@@ -594,6 +598,8 @@ menu_lost_colision_meteor:
 	JMP menu_lost_colision_meteor
 
 handle_colision_moeda:   ; alterar ------------------ nao e o que deve acontecer nesta colisao
+	MOV R1, DISPLAY_COIN
+	MOV [INC_DEC_DISPLAY], R1
 	MOV R1, SOM_TOCAR_MOEDA
 	MOV [TOCA_SOM], R1
 	MOV R1,2
@@ -920,6 +926,8 @@ Missil:
 	JMP exit_missil
 
 Draw_missil:
+	MOV R1, DISPLAY_MISSIL
+	MOV [INC_DEC_DISPLAY], R1
 	MOV R2, SOM_DISPARO
 	MOV [TOCA_SOM], R2			; toca o som de quando o missil foi disparado
 	MOV R2, [POS_ROVER_X]
