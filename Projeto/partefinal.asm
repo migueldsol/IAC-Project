@@ -52,7 +52,7 @@ MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
 MAX_COLUNA			EQU  63   	; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 0F80H	; numero da linha mais em baixo
-MAX_linha_objeto 	EQU 27		; numero maximo que o meteoro pode atingir de forma a nao afetar o rover
+MAX_linha_objeto 	EQU 10		; numero maximo que o meteoro pode atingir de forma a nao afetar o rover
 DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
@@ -91,8 +91,10 @@ LARGURA_MISSIL		EQU 1		; largura do missil
 ALTURA_MISSIL		EQU 1		; altura do missil
 MAX_LINHA_MISSIL	EQU 19		; máximo altura missil
 
-TIPO_MOEDA			EQU 1		; define os tipos para comparações
-TIPO_METEORO		EQU 0
+TIPO_EXPLOSAO		EQU 3
+TIPO_MOEDA			EQU 2		; define os tipos para comparações
+TIPO_METEORO		EQU 1
+TIPO_INDEFINIDO		EQU 0
 
 MOVE_NEXT_WORD		EQU 2		;passa para a próxima word da tabela
 MOVE_NEXT_TWO_WORDS	EQU 4		;passa duas palavras para a frente
@@ -228,15 +230,15 @@ cord_0:
 	WORD 0					;tipo de meteoro
 cord_1:
 	WORD 0					;posicao Y
-	WORD 16					;posicao X
+	WORD 0				;posicao X
 	WORD 0					;tipo de meteoro
 cord_2:
 	WORD 0					;posicao Y
-	WORD 32					;posicao X
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
 cord_3:
 	WORD 0					;posicao Y
-	WORD 48					;posicao X
+	WORD 0					;posicao X
 	WORD 0					;tipo de meteoro
 
 coord_objetos:
@@ -596,7 +598,7 @@ sai_meteoro:
 
 
 
-random_number:
+random_number_0_8:
 	PUSH R1
 	MOV R1,[RANDOM_NUMBER]
 	SHR R1,5
@@ -604,6 +606,17 @@ random_number:
 	POP R1
 	RET
 
+random_column:
+	PUSH R0
+	PUSH R1
+	CALL random_number_0_8
+	MOV R1, [RANDOM_NUMBER]
+	MOV R0, 8
+	MUL R1, R0
+	MOV [RANDOM_NUMBER], R1
+	POP R1
+	POP R0
+	RET
 ; **********************************************************************
 ; ANIMA_METEORO - Rotina cooperativa que desenha e faz descer o objeto
 ;			 numa dada coluna. Se chegar ao fundo, passa ao topo.
@@ -634,23 +647,41 @@ random_number:
 	ADD	 R5, 2 				; R5 = endereco da pos X 
 	MOV  R2, [R5]			; R2 = pos X do objeto
 
-	
+	ADD R5, 2
+	MOV R3, [R5]			; R3 = tipo do objeto
 
-	MOV  R4, DEF_MOEDA_3
-	CALL apaga_boneco		; apaga o meteoro do ecra
+	CMP R3, TIPO_INDEFINIDO
+	JZ object_init
 
 	ADD  R1, 1				; passa a linha abaixo
 	MOV  R4, MAX_linha_objeto
 	CMP  R1, R4				; ja estava na linha do fundo?
-	JLT  draw
-	; RANDOM comes in here
-	; MOV R2, [RANDOM_NUMBER]
-	ADD  R2, 1				; exemplo para demostrar que E aqui que o R2 deve tomar o novo valor, neste casa vai incrementando 1 valor
-	MOV  [R5], R2			; atualiza a pos Y do objeto na tabela
-	MOV  R1, 0				; volta ao topo do ecra
+	JLT  move
+	; insert a reset back to top --------------------------------------
 
-draw:
-	SUB R5, 2			; R5 volta a ser o endereco da pos Y
+	SUB R1, 1
+	MOV R4, DEF_MOEDA_3
+	CALL apaga_boneco
+	MOV R6, TIPO_INDEFINIDO
+	JMP object_init
+
+object_init:
+	SUB R5, 4
+	MOV R1, 0
+	MOV [R5], R1 ; mete na linha 0
+	CALL random_column
+	MOV R2, [RANDOM_NUMBER]
+	ADD R5, 2
+	MOV [R5], R2
+	; RANDOM comes in here to decide type
+	; MOV R4, tipo
+	MOV R4, TIPO_MOEDA
+	ADD R5, 2
+	MOV [R5], R4
+	JMP sai_anima_meteoro
+
+move:	
+	SUB R5, 4			; R5 volta a ser o endereco da pos Y
 	MOV  [R5], R1		; atualiza na tabela a linha em que esta o meteoro
 	CMP R1,	1
 	JLE fragmento1
@@ -658,6 +689,12 @@ draw:
 	MOV R7, 4
 	CMP R1, R7 
 	JLE fragmento2
+
+	CMP R3, TIPO_METEORO
+	JZ is_meteor
+	CMP R3, TIPO_MOEDA
+	JZ is_coin
+
 	
 	; RANDOM for object type comes in here 
 	; 0 if meteor 1 if coin (changed the EQU)
@@ -691,42 +728,67 @@ is_meteor:
 
 fragmento1:
 	MOV R4, DEF_FRAGMENTO_1
+	SUB R1, 1
+	CALL apaga_boneco
+	ADD R1, 1
 	CALL desenha_boneco		; escreve o meteoro na nova linha
 	JMP sai_anima_meteoro
 
 fragmento2:
 	MOV R4, DEF_FRAGMENTO_2
+	SUB R1, 1
+	CALL apaga_boneco
+	ADD R1, 1
 	CALL desenha_boneco
 	JMP sai_anima_meteoro
 
 meteoro1:
 	MOV R4, DEF_METEORO_1
+	SUB R1, 1
+	CALL apaga_boneco
+	ADD R1,1
 	CALL desenha_boneco
 	JMP sai_anima_meteoro
 
 meteoro2:
 	MOV R4, DEF_METEORO_2
+	SUB R1, 1
+	CALL apaga_boneco
+	ADD R1,1
 	CALL desenha_boneco
 	JMP sai_anima_meteoro
 
 meteoro3:
 	MOV R4, DEF_METEORO_3
+	SUB R1, 1
+	CALL apaga_boneco
+	ADD R1,1
 	CALL desenha_boneco
 	JMP sai_anima_meteoro
 
 moeda1:
 	MOV R4, DEF_MOEDA_1
+	SUB R1, 1
+	CALL apaga_boneco
+	ADD R1,1
 	CALL desenha_boneco
 	JMP sai_anima_meteoro
 
 moeda2:
 	MOV R4, DEF_MOEDA_2
+	SUB R1, 1
+	CALL apaga_boneco
+	ADD R1,1
 	CALL desenha_boneco
 	JMP sai_anima_meteoro
 
 moeda3:
 	MOV R4, DEF_MOEDA_3
+	SUB R1, 1
+	CALL apaga_boneco
+	ADD R1,1
 	CALL desenha_boneco
+	JMP sai_anima_meteoro
 
 sai_anima_meteoro:
 	POP	 R8
