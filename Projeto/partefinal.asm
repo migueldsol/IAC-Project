@@ -20,8 +20,8 @@ TEC_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 DISPLAY				EQU 0A000H 	; endereço do display
 DISPLAY_TIME	EQU 0FFFBH	; value that the interruption will make the display increase
-DISPLAY_COIN	EQU 0000AH	; value that increases display in colision with coin
-DISPLAY_METEOR EQU 00005H   ; value that increases display of missile colision with coin		
+DISPLAY_COIN	EQU 000AH	; value that increases display in colision with coin
+DISPLAY_METEOR EQU 0005H   ; value that increases display of missile colision with coin		
 DISPLAY_MISSIL EQU 0FFFBH	; value that decreases display by the fire of a missil
 
 
@@ -105,7 +105,7 @@ MOVE_NEXT_WORD		EQU 2		;passa para a próxima word da tabela
 MOVE_NEXT_TWO_WORDS	EQU 4		;passa duas palavras para a frente
 
 START_MENU			EQU 0		
-STANDARD_BACKRGOUND EQU 1
+STANDARD_BACKGROUND EQU 1
 LOSE_CONTACT_METEOR	EQU 2
 TOUCH_COIN			EQU 3
 
@@ -130,7 +130,7 @@ ORANGE 	EQU 0FFB2H		; cor laranja
 ; Dados 
 ; *********************************************************************************
 
-PLACE 2600H
+PLACE 3000H
 
 POS_ROVER_X:	WORD	0000H; endereco de memoria da coluna do rover
 POS_ROVER_Y:	WORD	0000H; endereco de memoria da linha do rover
@@ -144,8 +144,8 @@ INTERRUPCAO_ENERGIA: WORD 0000H; endereço de memória do valor de ativação da
 MISSIL_NUMBER:	WORD 0000H; adress of the number of missils in screen
 PRESSED_KEY:	WORD 0000H; Pressed key
 RANDOM_NUMBER:  WORD 0000H	;random number
-
-PLACE 1600H
+STOP:			WORD 0000H
+PLACE 2000H
 
 pilha:
 	STACK 100H			; espaco reservado para a pilha 
@@ -234,7 +234,9 @@ DEF_MISSIL:				; tabela que define o missil (cor, largura, altura, pixels)
 	WORD		LARGURA_MISSIL
 	WORD		ALTURA_MISSIL
 	WORD		DRKBLUE
-
+DEF_ECRA:
+	WORD		64
+	WORD 		32
 tab:
 	WORD rot_int_0			; rotina de atendimento da interrupção 0
 	WORD rot_int_1			; rotina de atendimento da interrupção 1
@@ -281,19 +283,59 @@ inicio:
 
 start_menu:
 	MOV	R1, START_MENU								; cenario de fundo numero 0
-    MOV  [SELECIONA_CENARIO_FUNDO], R1				; seleciona o cenario de fundo
+    MOV  [SELECIONA_CENARIO_FUNDO], R1	
+wait_play:			; seleciona o cenario de fundo
 	CALL Teclado
 	MOV R2, [PRESSED_KEY]
 	MOV R1, TECLA_START
 	CMP R2, R1
-	JNZ start_menu
-	MOV R1, STANDARD_BACKRGOUND
+	JNZ wait_play
+wait_play_2:
+	CALL Teclado
+	MOV R2, [PRESSED_KEY]
+	MOV R1, TECLA_START
+	CMP R2, R1
+	JNZ restart
+	JMP wait_play_2
+
+lost:
+	MOV R1, 0
+	MOV R2, 0
+	MOV R4, DEF_ECRA
+	CALL apaga_boneco
+	MOV R1, LOSE_CONTACT_METEOR
+	MOV [SELECIONA_CENARIO_FUNDO], R1
+	JMP wait_play
+
+
+restart:
+	MOV R2, 105				; ISTO NAO FUNCIONA ---------------------------------
+	MOV [DISPLAY_VAL], R2
+	
+	
+	MOV R1, STANDARD_BACKGROUND
 	MOV  [SELECIONA_CENARIO_FUNDO], R1		; seleciona o cenario de fundo
 
-init_display:
-	MOV R2, 105				; reinicia o display
-	MOV [DISPLAY_VAL], R2					; reinicia o valor do display
+	MOV R3, -2
+	MOV R4, 22
+reset_objects:
+	MOV R2, cord_0
+	ADD R3, 2
+	ADD R2, R3
+	MOV R1, 0
+	MOV [R2], R1
+	CMP R3, R4
+	JNZ reset_objects
 
+rest:
+	MOV R1, 0
+	MOV [INC_DEC_DISPLAY], R1
+	MOV [INTERRUPCAO_ENERGIA], R1
+	MOV [INTERRUPCAO_METEORO], R1
+	MOV [INTERRUPCAO_MISSIL], R1
+	MOV [MISSIL_NUMBER], R1
+	MOV [PRESSED_KEY], R1
+	MOV [STOP], R1
 
 init_ROVER:
      MOV  R1, LINHA_ROVER			; linha do boneco
@@ -305,14 +347,53 @@ init_ROVER:
  
 
 main:
+	
 	CALL Teclado			; leitura às tecla
+	CALL test_pause
 	CALL Rover				; Move Rover caso tecla tenha sido premida
-	CALL UPDATE_DISPLAY
 	CALL Missil
 	CALL meteoro
 	CALL colision_objeto_init
 	CALL colision_missile_init
+	CALL UPDATE_DISPLAY
+	MOV R1, 1
+	MOV R2, [STOP]
+	CMP R2, R1
+	JZ lost
 	JMP main
+
+
+test_pause:
+	PUSH R1
+	PUSH R2
+
+	MOV R1, [PRESSED_KEY]
+	MOV R2, TECLA_START
+	CMP R2, R1
+	JNZ end_test_pause
+wait_pause:
+	CALL Teclado
+	MOV R1, [PRESSED_KEY]
+	MOV R2, TECLA_START
+	CMP R2, R1
+	JZ wait_pause
+game_paused:
+	CALL Teclado
+	MOV R1, [PRESSED_KEY]
+	MOV R2, TECLA_START
+	CMP R2, R1
+	JNZ game_paused
+wait_pause_2:
+	CALL Teclado
+	MOV R1, [PRESSED_KEY]
+	MOV R2, TECLA_START
+	CMP R2, R1
+	JNZ end_test_pause
+	JMP wait_pause_2
+end_test_pause:
+	POP R2
+	POP R1
+	RET
 
 
 ; **********************************************************************
@@ -535,7 +616,9 @@ colision_main:
 	MOV R6, [R3]		; R6 = tipo objeto
 	CMP R6, TIPO_METEORO	
 	JZ colision_meteoro	; se for meteoro
-	JMP colision_moeda	; se for moeda
+	CMP R6, TIPO_MOEDA
+	JZ colision_moeda	; se for moeda
+	JMP cycle
 
 colision_meteoro:
 	SUB R3, 4		; volta a posicao Y
@@ -601,31 +684,26 @@ test_X_moeda:
 
 
 handle_colision_meteoro:
-	MOV R1, LOSE_CONTACT_METEOR
-	MOV [SELECIONA_CENARIO_FUNDO], R1
-	JMP menu_lost_colision_meteor	
+	MOV R1, 1
+	MOV [STOP], R1
+	JMP sai_colision
 
-menu_lost_colision_meteor:
-	MOV  [APAGA_ECRA], R1					; apaga todos os pixels ja desenhados (o valor de R1 nao e relevante)
-	CALL Teclado
-	MOV R2, [PRESSED_KEY]
-	MOV R1, TECLA_START
-	CMP R2, R1
-	JNZ menu_lost_colision_meteor
-	JMP inicio
 
 handle_colision_moeda:   ; alterar ------------------ nao e o que deve acontecer nesta colisao
 	MOV R1, DISPLAY_COIN
 	MOV [INC_DEC_DISPLAY], R1
+	SUB R3, 2
+	MOV R1, [R3]
+	ADD R3, 2
+	MOV R2, [R3]
+	MOV R4, DEF_MOEDA_3
+	CALL apaga_boneco
+	ADD R3, 2
+	MOV R1, TIPO_INDEFINIDO
+	MOV [R3], R1
 	MOV R1, SOM_TOCAR_MOEDA
-	MOV [TOCA_SOM], R1
-	MOV R1, TOUCH_COIN
-	MOV [SELECIONA_CENARIO_FUNDO], R1
-	;JMP menu_lost_coin
-;menu_lost_coin:
-;	JMP menu_lost_coin
-
-
+	MOV [TOCA_SOM], R1	
+	JMP cycle
 
 cycle:
 	MOV R8, 18
