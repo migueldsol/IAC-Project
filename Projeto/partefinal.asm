@@ -42,8 +42,8 @@ OFF					EQU 0000H	; activate the update_display routine
 
 TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
-TECLA_BAIXO			EQU 9		; tecla para movimentar para baixo (tecla 9)
-TECLA_MISSIL		EQU 1		; tecla para disparar umm missil
+TECLA_MISSIL		EQU 1		; tecla para disparar umm missil (tecla 1)
+TECLA_START			EQU 8		; tecla para iniciar/continuar o jogo (tecla 8)
 
 LINHA_ROVER      	EQU  28     ; linha do boneco (posicao mais baixa)
 COLUNA_ROVER		EQU  30     ; coluna do boneco (a meio do ecra)
@@ -104,9 +104,10 @@ COLISION_FALSE		EQU 0
 MOVE_NEXT_WORD		EQU 2		;passa para a próxima word da tabela
 MOVE_NEXT_TWO_WORDS	EQU 4		;passa duas palavras para a frente
 
-STANDARD_BACKRGOUND EQU 0
-LOSE_CONTACT_METEOR	EQU 1
-TOUCH_COIN			EQU 2
+START_MENU			EQU 0		
+STANDARD_BACKRGOUND EQU 1
+LOSE_CONTACT_METEOR	EQU 2
+TOUCH_COIN			EQU 3
 
 SOM_DISPARO			EQU 0
 SOM_TOCAR_MOEDA		EQU 1
@@ -272,12 +273,22 @@ inicio:
 	MOV  BTE, tab							; inicializa BTE (registo de Base da Tabela de Exce��es)
     MOV  [APAGA_AVISO], R1					; apaga o aviso de nenhum cenario selecionado (o valor de R1 nao e relevante)
     MOV  [APAGA_ECRA], R1					; apaga todos os pixels ja desenhados (o valor de R1 nao e relevante)
-	MOV	R1, 0								; cenario de fundo numero 0
-    MOV  [SELECIONA_CENARIO_FUNDO], R1		; seleciona o cenario de fundo
 	EI0										; permite interrupções 0
 	EI1										; permite interrupções 1
 	EI2										; permite interrupções 2
-	EI									; permite interrupções (geral)
+	EI										; permite interrupções (geral)
+
+
+start_menu:
+	MOV	R1, START_MENU								; cenario de fundo numero 0
+    MOV  [SELECIONA_CENARIO_FUNDO], R1				; seleciona o cenario de fundo
+	CALL Teclado
+	MOV R2, [PRESSED_KEY]
+	MOV R1, TECLA_START
+	CMP R2, R1
+	JNZ start_menu
+	MOV R1, STANDARD_BACKRGOUND
+	MOV  [SELECIONA_CENARIO_FUNDO], R1		; seleciona o cenario de fundo
 
 init_display:
 	MOV R2, 105				; reinicia o display
@@ -590,23 +601,29 @@ test_X_moeda:
 
 
 handle_colision_meteoro:
-	MOV R1, 1
+	MOV R1, LOSE_CONTACT_METEOR
 	MOV [SELECIONA_CENARIO_FUNDO], R1
 	JMP menu_lost_colision_meteor	
 
 menu_lost_colision_meteor:
-	JMP menu_lost_colision_meteor
+	MOV  [APAGA_ECRA], R1					; apaga todos os pixels ja desenhados (o valor de R1 nao e relevante)
+	CALL Teclado
+	MOV R2, [PRESSED_KEY]
+	MOV R1, TECLA_START
+	CMP R2, R1
+	JNZ menu_lost_colision_meteor
+	JMP inicio
 
 handle_colision_moeda:   ; alterar ------------------ nao e o que deve acontecer nesta colisao
 	MOV R1, DISPLAY_COIN
 	MOV [INC_DEC_DISPLAY], R1
 	MOV R1, SOM_TOCAR_MOEDA
 	MOV [TOCA_SOM], R1
-	MOV R1,2
+	MOV R1, TOUCH_COIN
 	MOV [SELECIONA_CENARIO_FUNDO], R1
-	JMP menu_lost_coin
-menu_lost_coin:
-	JMP menu_lost_coin
+	;JMP menu_lost_coin
+;menu_lost_coin:
+;	JMP menu_lost_coin
 
 
 
