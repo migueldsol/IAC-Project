@@ -96,6 +96,9 @@ TIPO_MOEDA			EQU 2		; define os tipos para comparações
 TIPO_METEORO		EQU 1
 TIPO_INDEFINIDO		EQU 0
 
+COLISION_TRUE		EQU 1
+COLISION_FALSE		EQU 0
+
 MOVE_NEXT_WORD		EQU 2		;passa para a próxima word da tabela
 MOVE_NEXT_TWO_WORDS	EQU 4		;passa duas palavras para a frente
 
@@ -313,7 +316,8 @@ colision_missile_init:
 	PUSH R5
 	PUSH R6
 	PUSH R7
-
+	PUSH R9
+	MOV R9, COLISION_FALSE
 	
 	MOV R0, [MISSIL_NUMBER]
 	CMP R0, 0
@@ -334,26 +338,26 @@ colision_missile_main:
 
 	ADD R1, MOVE_NEXT_TWO_WORDS	
 	MOV R2, [R1]					; R2 passa a ser o tipo de objeto
-	CMP R2, TIPO_METEORO
+	CMP R2, TIPO_METEORO			; se for um meteoro
 	JZ colisao_missil_meteoro
-	CMP R2, TIPO_MOEDA
+	CMP R2, TIPO_MOEDA				; se for uma moeda
 	JZ colision_missile_coin
-	JMP next_objeto
+	JMP next_objeto					; se for uma explosao
 colisao_missil_meteoro:
-	SUB R1, 4				; R1 de volta a pos Y
+	SUB R1, 4					; R1 de volta a pos Y
 	MOV R0, R1
-	MOV R4, DEF_METEORO_3
-	CALL colision_missile
+	MOV R4, DEF_METEORO_3		; colisoes so podem acontecer com objetos grandes
+	CALL colision_missile		; R0 = tabela do objeto, R4 = def do objeto
 	CMP R8 , 1
-	JZ handle_colision_missile_meteor
+	JZ handle_colision_missile_meteor ;se houve colisao
 
 colision_missile_coin:
 	SUB R1, 4				; R1 de volta a pos Y
 	MOV R0, R1
-	MOV R4, DEF_MOEDA_3
-	CALL colision_missile
+	MOV R4, DEF_MOEDA_3		; colisoes so podem acontecer com objetos grandes
+	CALL colision_missile	; R0 = tabela do objeto, R4 = def do objeto
 	CMP R8 , 1
-	JZ handle_colision_missile_coin
+	JZ handle_colision_missile_coin	; se houve colisao
 
 next_objeto:
 	ADD R3, 1
@@ -366,23 +370,22 @@ handle_colision_missile_meteor:
 	MOV R1, [POS_MISSIL_Y]
 	MOV R2, [POS_MISSIL_X]
 	MOV R4, DEF_MISSIL
-	CALL apaga_boneco
-	MOV R1, 0
-	MOV [MISSIL_NUMBER], R1
-	MOV R1, [R0]
+	CALL apaga_boneco		;apaga o missil
+	MOV R1, [R0]			; R1 = POS Y
 	ADD R0, 2
-	MOV R2, [R0]
-	MOV R4, DEF_METEORO_3
-	CALL apaga_boneco
-	MOV R4, DEF_EXPLOSAO
-	CALL desenha_boneco
-	MOV R1, SOM_ACERTAR_METEORO
-	MOV [TOCA_SOM], R1
-	ADD R0, 2
-	MOV R4, TIPO_EXPLOSAO
-	MOV [R0], R4
+	MOV R2, [R0]			; R2= POS X
+	MOV R4, DEF_METEORO_3	; R4 = DEF
+	CALL apaga_boneco		; apaga o boneco
+	MOV R4, DEF_EXPLOSAO	; R4 = DEF
+	CALL desenha_boneco		; desenha a explosao
+	MOV R1, SOM_ACERTAR_METEORO	
+	MOV [TOCA_SOM], R1	; faz o som
+	ADD R0, 2			
+	MOV R4, TIPO_EXPLOSAO	
+	MOV [R0], R4			; muda o tipo do objeto para explosao
+	MOV R9, COLISION_TRUE	; houve colisao
 	
-	JMP exit_missile_routine
+	JMP next_objeto
 
 
 handle_colision_missile_coin:
@@ -390,27 +393,34 @@ handle_colision_missile_coin:
 	MOV R1, [POS_MISSIL_Y]
 	MOV R2, [POS_MISSIL_X]
 	MOV R4, DEF_MISSIL
-	CALL apaga_boneco
-	MOV R1, 0
-	MOV [MISSIL_NUMBER], R1
-	MOV R1, [R0]
+	CALL apaga_boneco		;apaga o missil
+	MOV R1, [R0]			; R1 = POS Y
 	ADD R0, 2
-	MOV R2, [R0]
-	MOV R4, DEF_METEORO_3
-	CALL apaga_boneco
-	MOV R4, DEF_EXPLOSAO
-	CALL desenha_boneco
+	MOV R2, [R0]			; R2= POS X
+	MOV R4, DEF_METEORO_3	; R4 = DEF
+	CALL apaga_boneco		; apaga o boneco
+	MOV R4, DEF_EXPLOSAO	; R4 = DEF
+	CALL desenha_boneco		; desenha a explosao
 	MOV R1, SOM_ACERTAR_MOEDA
-	MOV [TOCA_SOM], R1
+	MOV [TOCA_SOM], R1		; faz o som
 	ADD R0, 2
 	MOV R4, TIPO_EXPLOSAO
-	MOV [R0], R4
-	JMP exit_missile_routine
-menu_lost_colision_coin:
-	JMP menu_lost_colision_coin	
-	;JMP exit_missile_routine
+	MOV [R0], R4			; muda o tipo do objeto para explosao
+	MOV R9, COLISION_TRUE	; houve colisao
+	
+	JMP next_objeto
 
 exit_missile_routine:
+	CMP R9, COLISION_TRUE
+	JZ exit_missile_routine_with_colision	; houve colisao
+	JMP missile_routine_pops
+exit_missile_routine_with_colision:
+	MOV R1, 0
+	MOV [MISSIL_NUMBER], R1	; missil desaparece
+	JMP missile_routine_pops
+
+missile_routine_pops:
+	POP R9
 	POP R7
 	POP R6
 	POP R5
@@ -446,12 +456,12 @@ colision_missile: 				; R0 endereco do meteoro
 	MOV R1, [R0] 				; coordenada X do meteoro
 
 	MOV R5, [R4] 				; largura do meteoro
-	ADD  R5,R1 					; coordenada x mais a direita do meteoro
-	SUB R5, 1
+	ADD  R5,R1 					
+	SUB R5, 1					; coordenada x mais a direita do meteoro
 	ADD  R4, MOVE_NEXT_WORD
 	MOV R6, [R4] 				; altura do meteoro
-	ADD  R6,R2 				; coordenada y mais a baixo do meteoro
-	SUB R6, 1
+	ADD  R6,R2 				
+	SUB R6, 1				; coordenada y mais a baixo do meteoro
 	MOV R4, [POS_MISSIL_X] 				; coordenada x do missil
 	MOV R7, [POS_MISSIL_Y] 				; coordenada y do missil
 
@@ -497,19 +507,20 @@ colision_objeto_init:
 	PUSH R7
 	PUSH R8
 	PUSH R9
+
 	MOV R9, 0	; iteração
 
 colision_main:
 	MOV R3, cord_0 		; tabela do objeto 0
-	MOV R1, 15			
+	MOV R1, 15			; linha em que os objetos ficam grandes
 	CMP R3, R1			; nao vale a pena comparar se o objeto nao estiver ainda grande
-	JLT cycle
+	JLT cycle			
 	ADD R3, R9			; passa para a tabela do objeto correto
 	ADD R3, 4			; chegar ao tipo de objeto
-	MOV R6, [R3]
+	MOV R6, [R3]		; R6 = tipo objeto
 	CMP R6, TIPO_METEORO	
-	JZ colision_meteoro
-	JMP colision_moeda
+	JZ colision_meteoro	; se for meteoro
+	JMP colision_moeda	; se for moeda
 
 colision_meteoro:
 	SUB R3, 4		; volta a posicao Y
@@ -517,26 +528,26 @@ colision_meteoro:
 	MOV R6, DEF_METEORO_3	; vai buscar o meteoro
 	ADD R6, 2				; vai buscar a altura do meteoro
 	MOV R5, [R6]			; R5 = altura do meteoro
-	ADD R1, R5		; R1 passa a ser a linha de baixo do meteoro
-	MOV R4, [POS_ROVER_Y]
+	ADD R1, R5				; R1 passa a ser a linha de baixo do meteoro
+	MOV R4, [POS_ROVER_Y]	; R4 = linha de cima do rover
 	CMP R1, R4
-	JGE test_X_meteoro
+	JGE test_X_meteoro		; se for possivel haver colisao
 	JMP cycle
 test_X_meteoro:
 	MOV R4, [POS_ROVER_X]
-	ADD R3, 2 
-	MOV R7, [R3] ; posicao X do meteoro
+	ADD R3, 2 				; endereco da coordenada X do meteoro
+	MOV R7, [R3] 			; posicao X do meteoro
 	MOV R6, [DEF_METEORO_3] ; largura do meteoro
-	
-	ADD R7, R6	; posicao direita X do meteoro
-	CMP R4, R7	; ve se a posicao do rover e maior que o limite direito do meteoro
+	SUB R6, 1				
+	ADD R7, R6		; posicao direita X do meteoro
+	CMP R4, R7		; ve se a posicao do rover e maior que o limite direito do meteoro
 	JGT cycle
 
 	MOV R4, [POS_ROVER_X]
-	MOV R7, [R3]	; posicao X do meteoro
-	MOV R6, [DEF_ROVER]
+	MOV R7, [R3]			; posicao X do meteoro
+	MOV R6, [DEF_ROVER]		
 	ADD R4, R6
-	SUB R4, 1
+	SUB R4, 1				; limite direito do rover
 	CMP R4, R7	; ve se o limite direito do rover e menor que o a posicao do meteoro
 	JLT cycle
 	
@@ -549,17 +560,17 @@ colision_moeda:
 	ADD R6, 2				; vai buscar a altura da moeda
 	MOV R5, [R6]			; R5 = altura da moeda
 	ADD R1, R5		; R1 passa a ser a linha de baixo da moeda
-	MOV R4, [POS_ROVER_Y]
+	MOV R4, [POS_ROVER_Y]	; R4 = linha de cima do rover
 	CMP R1, R4
-	JGE test_X_moeda
+	JGE test_X_moeda		; se for possivel haver colisao
 	JMP cycle
 
 test_X_moeda:
 	MOV R4, [POS_ROVER_X]
-	ADD R3, 2 
+	ADD R3, 2 	 ; enderco da coordenada X da moeda
 	MOV R7, [R3] ; posicao X da moeda
 	MOV R6, [DEF_MOEDA_3] ; largura da moeda
-	
+	SUB R6, 1
 	ADD R7, R6	; posicao direita X da moeda
 	CMP R4, R7	; ve se a posicao do rover e maior que o limite direito da moeda
 	JGT cycle
@@ -568,6 +579,7 @@ test_X_moeda:
 	MOV R7, [R3]	; posicao X da moeda
 	MOV R6, [DEF_ROVER]
 	ADD R4, R6
+	SUB R4, 1 	; limite direito do rover	
 	CMP R4, R7	; ve se o limite direito do rover e menor que o a posicao da moeda
 	JLT cycle
 	JMP handle_colision_moeda
@@ -581,7 +593,7 @@ handle_colision_meteoro:
 menu_lost_colision_meteor:
 	JMP menu_lost_colision_meteor
 
-handle_colision_moeda:
+handle_colision_moeda:   ; alterar ------------------ nao e o que deve acontecer nesta colisao
 	MOV R1, SOM_TOCAR_MOEDA
 	MOV [TOCA_SOM], R1
 	MOV R1,2
@@ -736,13 +748,12 @@ random_tipo_end:
 	MOV  R4, MAX_linha_objeto
 	CMP  R1, R4				; ja estava na linha do fundo?
 	JLT  move
-	; insert a reset back to top --------------------------------------
 
 	SUB R1, 1
 	MOV R4, DEF_MOEDA_3		; o DEF_MOEDA_3 pode ser qualquer um dos tipos finais
-	CALL apaga_boneco
+	CALL apaga_boneco		; apaga o objecto que chegou ao limite
 	MOV R6, TIPO_INDEFINIDO
-	JMP object_init
+	JMP object_init			; reinicia o objeto
 
 object_init:
 	SUB R5, 4
@@ -751,18 +762,18 @@ object_init:
 	CALL random_column		; obtem uma coluna em que desenhar o objeto
 	MOV R2, [RANDOM_NUMBER]	
 	ADD R5, 2
-	MOV [R5], R2
+	MOV [R5], R2			; poe o valor da coluna  no objeto
 	CALL random_tipo		; obtem um tipo para o objeto
 	MOV R4, [RANDOM_NUMBER]
 	ADD R5, 2
-	MOV [R5], R4			
+	MOV [R5], R4			; poe o tipo do objeto no objeto
 	JMP sai_anima_meteoro	; desenha o objeto no ciclo seguinte para um animacao mais fluida
 
 explosao:					; a explosao deve durar um ciclo e permitir a criacao de um objeto novo
 	MOV R4, DEF_EXPLOSAO
-	CALL apaga_boneco		; apaga a explosao
-	MOV R3, TIPO_INDEFINIDO	
-	MOV [R5], R3
+	CALL apaga_boneco			; apaga a explosao
+	MOV R3, TIPO_INDEFINIDO		
+	MOV [R5], R3				; passa o tipo do objeto para indefinido para ser criado um novo no proximo ciclo
 	JMP sai_anima_meteoro
 
 move:	
@@ -910,15 +921,15 @@ Missil:
 
 Draw_missil:
 	MOV R2, SOM_DISPARO
-	MOV [TOCA_SOM], R2
+	MOV [TOCA_SOM], R2			; toca o som de quando o missil foi disparado
 	MOV R2, [POS_ROVER_X]
 	MOV R1, [POS_ROVER_Y]
 	SUB R1, 1
 	ADD R2, 2
-	MOV [POS_MISSIL_X],R2
+	MOV [POS_MISSIL_X],R2		; define as posicoes onde o missil vai aparecer
 	MOV [POS_MISSIL_Y],R1
 	MOV R4, DEF_MISSIL
-	CALL desenha_boneco
+	CALL desenha_boneco			; desenha o missil
 	MOV R4, 1
 	MOV [MISSIL_NUMBER], R4		;escreve na memoria que já existe um missil
 	JMP exit_missil
@@ -931,20 +942,19 @@ Move_missil:
 	MOV R1,[INTERRUPCAO_MISSIL]
 	CMP R1 , ON				;verifica se a interrupção foi ativada
 	JNZ exit_missil
-	MOV R2,[POS_MISSIL_X]
+	MOV R2,[POS_MISSIL_X]  
 	MOV R1,[POS_MISSIL_Y]
-	MOV R4,DEF_MISSIL
-	CALL testa_limite_cima
-	
+	MOV R4, DEF_MISSIL
+	CALL testa_limite_cima	
 	CMP R0,0				;verifica se o missil chegou ao limite do ecra
 	JZ missil_disapear		; se chegou ao limite este deve desaparecer
 	
-	CALL apaga_boneco
+	CALL apaga_boneco	; apaga o missil na posicao atual
 	SUB R1,1
 	MOV [POS_MISSIL_Y],R1
-	CALL desenha_boneco
+	CALL desenha_boneco		; desenha o boneco no pixel acima
 	MOV R1,OFF
-	MOV [INTERRUPCAO_MISSIL],R1
+	MOV [INTERRUPCAO_MISSIL],R1	; reset ao valor da interrupcao
 	JMP exit_missil
 
 missil_disapear:				; apaga o missil existente
