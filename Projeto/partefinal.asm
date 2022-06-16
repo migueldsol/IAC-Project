@@ -52,7 +52,7 @@ MIN_COLUNA			EQU  0		; numero da coluna mais a esquerda
 MAX_COLUNA			EQU  63   	; numero da coluna mais a direita 
 MIN_LINHA			EQU	 0		; numero da linha mais em cima 
 MAX_LINHA			EQU	 0F80H	; numero da linha mais em baixo
-MAX_linha_objeto 	EQU 10		; numero maximo que o meteoro pode atingir de forma a nao afetar o rover
+MAX_linha_objeto 	EQU 31		; numero maximo que o meteoro pode atingir de forma a nao afetar o rover
 DISPLAY_MAX			EQU 64H 	; numero maximo que o display deve mostrar (100 dec)
 DISPLAY_MAX_INIT	EQU 0100H	; valor inicial do display
 DISPLAY_MIN			EQU 0H  	; numero minimo que o display deve mostrar
@@ -60,7 +60,7 @@ DECREMENTACAO_DISPLAY	EQU 5	; valor que vai ser subtraido periodicamente
 INCREMENTACAO_DISPLAY	EQU 0AH ; valor que aumenta no display caso atinja uma moeda
 HEXTODEC 			EQU 0AH
 
-ATRASO			EQU	0400H		; atraso para limitar a velocidade de movimento do boneco
+ATRASO			EQU	1200H		; atraso para limitar a velocidade de movimento do boneco
 
 LARGURA_ROVER		EQU	5		; largura do ROVER
 ALTURA_ROVER		EQU 4		; altura do ROVER
@@ -284,7 +284,7 @@ main:
 	CALL UPDATE_DISPLAY
 	CALL Missil
 	CALL meteoro
-	CALL colision_meteoro_init
+	CALL colision_objeto_init
 	CALL colision_missile_init
 	JMP main
 
@@ -325,24 +325,25 @@ colision_missile_main:
 	ADD R1, MOVE_NEXT_TWO_WORDS	
 	MOV R2, [R1]					; R2 passa a ser o tipo de objeto
 	CMP R2, TIPO_METEORO
-	JZ colisao_meteoro
-	JMP colisao_moeda
-
-colisao_meteoro:
+	JZ colisao_missil_meteoro
+	CMP R2, TIPO_MOEDA
+	JZ colision_missile_coin
+	JMP next_objeto
+colisao_missil_meteoro:
 	SUB R1, 4				; R1 de volta a pos Y
 	MOV R0, R1
 	MOV R4, DEF_METEORO_3
 	CALL colision_missile
 	CMP R8 , 1
-	JZ colision_missile_meteor
+	JZ handle_colision_missile_meteor
 
-colisao_moeda:
+colision_missile_coin:
 	SUB R1, 4				; R1 de volta a pos Y
 	MOV R0, R1
 	MOV R4, DEF_MOEDA_3
 	CALL colision_missile
 	CMP R8 , 1
-	JZ colision_missile_coin
+	JZ handle_colision_missile_coin
 
 next_objeto:
 	ADD R3, 1
@@ -350,16 +351,29 @@ next_objeto:
 	JZ exit_missile_routine		;quando já tiver passado pelos quatro meteoros
 	JMP colision_missile_main
 
-colision_missile_meteor:
+handle_colision_missile_meteor:
 	;quando a colisão acontecer fazer alguma coisa
-	MOV R1, 1
-	MOV [SELECIONA_CENARIO_FUNDO], R1
-menu_lost_colision_missile:
-	JMP menu_lost_colision_missile	
-	;JMP exit_missile_routine
+	MOV R1, [POS_MISSIL_Y]
+	MOV R2, [POS_MISSIL_X]
+	MOV R4, DEF_MISSIL
+	CALL apaga_boneco
+	MOV R1, 0
+	MOV [MISSIL_NUMBER], R1
+	MOV R1, [R0]
+	ADD R0, 2
+	MOV R2, [R0]
+	MOV R4, DEF_METEORO_3
+	CALL apaga_boneco
+	MOV R4, DEF_EXPLOSAO
+	CALL desenha_boneco
+	ADD R0, 2
+	MOV R4, TIPO_EXPLOSAO
+	MOV [R0], R4
+	
+	JMP exit_missile_routine
 
 
-colision_missile_coin:
+handle_colision_missile_coin:
 	;quando a colisão acontecer fazer alguma coisa
 	MOV R1, 2
 	MOV [SELECIONA_CENARIO_FUNDO], R1
@@ -404,11 +418,11 @@ colision_missile: 				; R0 endereco do meteoro
 
 	MOV R5, [R4] 				; largura do meteoro
 	ADD  R5,R1 					; coordenada x mais a direita do meteoro
-
+	SUB R5, 1
 	ADD  R4, MOVE_NEXT_WORD
 	MOV R6, [R4] 				; altura do meteoro
 	ADD  R6,R2 				; coordenada y mais a baixo do meteoro
-
+	SUB R6, 1
 	MOV R4, [POS_MISSIL_X] 				; coordenada x do missil
 	MOV R7, [POS_MISSIL_Y] 				; coordenada y do missil
 
@@ -444,7 +458,7 @@ exit_missile_colision:
 
 ;************************************************************************
 
-colision_meteoro_init:
+colision_objeto_init:
 	PUSH R1
 	PUSH R2
 	PUSH R3
@@ -526,21 +540,23 @@ test_X_moeda:
 	ADD R4, R6
 	CMP R4, R7	; ve se o limite direito do rover e menor que o a posicao da moeda
 	JLT cycle
+	JMP handle_colision_moeda
 
 
 handle_colision_meteoro:
 	MOV R1, 1
 	MOV [SELECIONA_CENARIO_FUNDO], R1
-	JMP menu_lost_colision	
+	JMP menu_lost_colision_meteor	
 
-menu_lost_colision:
-	JMP menu_lost_colision
+menu_lost_colision_meteor:
+	JMP menu_lost_colision_meteor
 
 handle_colision_moeda:
-	MOV R1, DISPLAY_COIN
-	MOV [INC_DEC_DISPLAY], R1
-	CALL UPDATE_DISPLAY
-	JMP handle_colision_meteoro
+	MOV R1,2
+	MOV [SELECIONA_CENARIO_FUNDO], R1
+	JMP menu_lost_coin
+menu_lost_coin:
+	JMP menu_lost_coin
 
 
 
@@ -598,15 +614,18 @@ sai_meteoro:
 
 
 
-random_number_0_8:
+random_number_0_8:	; obtem um numero random entre 0 e 8
+	PUSH R0
 	PUSH R1
-	MOV R1,[RANDOM_NUMBER]
-	SHR R1,5
-	MOV [RANDOM_NUMBER], R1
+	MOV R1,TEC_COL
+	MOVB R0, [R1]
+	SHR R0, 5
+	MOV [RANDOM_NUMBER], R0
 	POP R1
+	POP R0
 	RET
 
-random_column:
+random_column:		; obtem uma coluna random com os valores: 0,8,16,24,32,40,48,56
 	PUSH R0
 	PUSH R1
 	CALL random_number_0_8
@@ -614,6 +633,31 @@ random_column:
 	MOV R0, 8
 	MUL R1, R0
 	MOV [RANDOM_NUMBER], R1
+	POP R1
+	POP R0
+	RET
+
+random_tipo:		; obtem um tipo random sendo moeda quando o valor e 48 ou 56, e meteoro no resto
+	PUSH R0
+	PUSH R1
+	PUSH R2
+	CALL random_number_0_8
+	MOV R1, [RANDOM_NUMBER]
+	MOV R0, 8
+	MUL R1, R0
+	MOV R2, 48
+	CMP R1, R2
+	JGE random_tipo_moeda
+	MOV R1, TIPO_METEORO
+	MOV [RANDOM_NUMBER], R1
+	JMP random_tipo_end
+random_tipo_moeda:
+	MOV R1, TIPO_MOEDA
+	MOV [RANDOM_NUMBER],R1
+	JMP random_tipo_end
+random_tipo_end:
+	MOV [RANDOM_NUMBER], R1
+	POP R2
 	POP R1
 	POP R0
 	RET
@@ -650,8 +694,11 @@ random_column:
 	ADD R5, 2
 	MOV R3, [R5]			; R3 = tipo do objeto
 
-	CMP R3, TIPO_INDEFINIDO
-	JZ object_init
+	CMP R3, TIPO_INDEFINIDO	
+	JZ object_init			; se o objeto ainda nao tiver tipo entao deve ser criado
+
+	CMP R3, TIPO_EXPLOSAO
+	JZ explosao
 
 	ADD  R1, 1				; passa a linha abaixo
 	MOV  R4, MAX_linha_objeto
@@ -660,26 +707,30 @@ random_column:
 	; insert a reset back to top --------------------------------------
 
 	SUB R1, 1
-	MOV R4, DEF_MOEDA_3
+	MOV R4, DEF_MOEDA_3		; o DEF_MOEDA_3 pode ser qualquer um dos tipos finais
 	CALL apaga_boneco
 	MOV R6, TIPO_INDEFINIDO
 	JMP object_init
 
 object_init:
 	SUB R5, 4
-	MOV R1, 0
-	MOV [R5], R1 ; mete na linha 0
-	CALL random_column
+	MOV R1, 0FFFFH			; 
+	MOV [R5], R1			; poe na linha -1 para uma animacao mais fluida
+	CALL random_column		; obtem uma coluna em que desenhar o objeto
 	MOV R2, [RANDOM_NUMBER]
 	ADD R5, 2
 	MOV [R5], R2
-	; RANDOM comes in here to decide type
-	; MOV R4, tipo
-	MOV R4, TIPO_MOEDA
+	CALL random_tipo
+	MOV R4, [RANDOM_NUMBER]
 	ADD R5, 2
 	MOV [R5], R4
 	JMP sai_anima_meteoro
-
+explosao:
+	MOV R4, DEF_EXPLOSAO
+	CALL apaga_boneco
+	MOV R3, TIPO_INDEFINIDO
+	MOV [R5], R3
+	JMP sai_anima_meteoro
 move:	
 	SUB R5, 4			; R5 volta a ser o endereco da pos Y
 	MOV  [R5], R1		; atualiza na tabela a linha em que esta o meteoro
@@ -1195,7 +1246,6 @@ ciclo:
 espera_tecla:          	; neste ciclo espera-se ate uma tecla ser premida
     MOVB [R2],R0       	; ler pertiferico de saida (linhas)
     MOVB R1, [R3]      	; ler do periferico de entrada (colunas)
-	MOV [RANDOM_NUMBER],R1
     AND  R1, R5        	; elimina bits para alem dos bits 0-3
     CMP  R1, 0         	; ha tecla premida?
     MOV R6,R0          	; para poder verificar se a tecla ainda está pressionada
