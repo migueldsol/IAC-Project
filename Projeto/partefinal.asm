@@ -309,9 +309,7 @@ lost:
 
 
 restart:
-	MOV R2, 105				; ISTO NAO FUNCIONA ---------------------------------
-	MOV [DISPLAY_VAL], R2
-	
+	CALL init_display	;dá reset ao display
 	
 	MOV R1, STANDARD_BACKGROUND
 	MOV  [SELECIONA_CENARIO_FUNDO], R1		; seleciona o cenario de fundo
@@ -1498,3 +1496,11 @@ rot_int_2:
 	POP R1
 	RFE					; Return From Exception (diferente do RET)
 
+init_display:
+	PUSH R1
+	MOV R1, DISPLAY_MAX_INIT		
+	MOV [DISPLAY], R1						; reinicia o display
+	MOV R1, DISPLAY_MAX
+	MOV [DISPLAY_VAL], R1					; reinicia o valor do display
+	POP R1
+	RET
