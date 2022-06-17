@@ -44,7 +44,6 @@ TECLA_ESQUERDA		EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 TECLA_DIREITA		EQU 6		; tecla para movimentar para a direita (tecla 6)
 TECLA_MISSIL		EQU 1		; tecla para disparar umm missil (tecla 1)
 TECLA_START			EQU 8		; tecla para iniciar/continuar o jogo (tecla 8)
-TECLA_PAUSE			EQU 9		; tecla para parar o jogo
 
 LINHA_ROVER      	EQU  28     ; linha do boneco (posicao mais baixa)
 COLUNA_ROVER		EQU  30     ; coluna do boneco (a meio do ecra)
@@ -355,53 +354,37 @@ main:
 	CALL colision_objeto_init
 	CALL colision_missile_init
 	CALL UPDATE_DISPLAY
-	MOV R1, 1		;solução para passar isto para rotina
-	MOV R2, [STOP]
-	CMP R2, R1
-	JZ lost
-	JMP main
-	;CALL stop
-	
-
-; **********************************************************************
-; Missile_colision - Verifies if the missile colides with the meteor or 
-;					the coin
-; **********************************************************************
-stop:
 	MOV R1, 1
 	MOV R2, [STOP]
 	CMP R2, R1
 	JZ lost
 	JMP main
 
-; **********************************************************************
-; Missile_colision - Verifies if the missile colides with the meteor or 
-;					the coin
-; **********************************************************************
+
 test_pause:
 	PUSH R1
 	PUSH R2
 
 	MOV R1, [PRESSED_KEY]
-	MOV R2, TECLA_PAUSE
+	MOV R2, TECLA_START
 	CMP R2, R1
 	JNZ end_test_pause
 wait_pause:
 	CALL Teclado
 	MOV R1, [PRESSED_KEY]
-	MOV R2, TECLA_PAUSE
+	MOV R2, TECLA_START
 	CMP R2, R1
 	JZ wait_pause
 game_paused:
 	CALL Teclado
 	MOV R1, [PRESSED_KEY]
-	MOV R2, TECLA_PAUSE
+	MOV R2, TECLA_START
 	CMP R2, R1
 	JNZ game_paused
 wait_pause_2:
 	CALL Teclado
 	MOV R1, [PRESSED_KEY]
-	MOV R2, TECLA_PAUSE
+	MOV R2, TECLA_START
 	CMP R2, R1
 	JNZ end_test_pause
 	JMP wait_pause_2
@@ -1125,6 +1108,7 @@ UPDATE_DISPLAY:
 	JZ EXIT_UPDATE_DISPLAY
 	MOV R1, [DISPLAY_VAL]
 	CALL testa_limites_display
+	MOV [DISPLAY_VAL], R1
 	CALL HEX_TO_DEC
 	MOV [DISPLAY], R1			; altera o display 
 	MOV R3, OFF
@@ -1172,14 +1156,8 @@ testa_display_min:
 	CMP R1, R5
 	JZ sai_testa_limites_display			; ja nao pode diminuir mais
 	ADD R1, R2		; valor atual do display
-testa_display_max:
-	MOV R6, DISPLAY_MAX
-	CMP R1,R6
-	JGT max_display				; chegou ao máximo
 	MOV [DISPLAY_VAL], R1		; altera o valor guardado do display
 	JMP sai_testa_limites_display
-max_display:
-	MOV [DISPLAY_VAL],R6
 sai_testa_limites_display:
 	POP R6
 	POP R5
@@ -1409,7 +1387,7 @@ ciclo:
     MOV R0, 1          	; inicializa o R0 a um 
     MOV R1, 0          	; inicializa o R1 a zero 
     MOV R6, R1         	; escreve coluna a zero
-    MOV R7, R1         	; escreve calculo potesta_limites_displaysicao linha a zero
+    MOV R7, R1         	; escreve calculo posicao linha a zero
     MOV R8, R1         	; escreve caluclo posicao coluna a zero
 	MOV R9, 8
 espera_tecla:          	; neste ciclo espera-se ate uma tecla ser premida
@@ -1517,7 +1495,6 @@ rot_int_2:
 	MOV [INC_DEC_DISPLAY],R1
 	POP R1
 	RFE					; Return From Exception (diferente do RET)
-
 
 init_display:
 	PUSH R1
