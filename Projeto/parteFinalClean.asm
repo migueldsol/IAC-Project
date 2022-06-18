@@ -49,6 +49,7 @@ KEY_RIGHT			EQU 6		; tecla para movimentar para a direita (tecla 6)
 KEY_FIRE_MISSILE	EQU 1		; tecla para disparar umm missil (tecla 1)
 KEY_START			EQU 8		; tecla para iniciar jogo (tecla 8)
 KEY_PAUSE_UNPAUSE	EQU 9		; tecla para reiniciar o jogo (tecla 9)
+KEY_STOP			EQU 10 		; tecla para parar o jogo (tecla A)
 
 LINE_ROVER      EQU  28     ; linha do boneco (posicao mais baixa)
 COL_ROVER		EQU  30     ; coluna do boneco (a meio do ecra)
@@ -347,7 +348,22 @@ end_check_out_of_gas:
 	POP R1
 	RET
 
-
+check_pressed_stop:
+	PUSH R1
+	PUSH R2
+	MOV R1, [PRESSED_KEY]
+	MOV R2, KEY_STOP
+	CMP R1, R2
+	JNZ end_check_pressed_stop
+	CALL lose
+	CALL stop_pressed
+	MOV R1, KEY_START
+	CALL wait_key
+	CALL restart
+	end_check_pressed_stop:
+	POP R2
+	POP R1
+	RET
 ; *****************
 ;
 ;*****************
@@ -363,6 +379,7 @@ main:
 	CALL update_display
 	CALL check_out_of_gas
 	CALL check_lost_colision
+	CALL check_pressed_stop
 	JMP main
 
 
@@ -1652,6 +1669,12 @@ lose_gas:
 	POP R1
 	RET
 
+stop_pressed:
+	PUSH R1
+	MOV R1, START_MENU
+	MOV [BACKGROUND_SELECT], R1
+	POP R1
+	RET
 ; *************************
 ;
 ; **************************
