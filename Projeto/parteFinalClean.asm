@@ -32,6 +32,7 @@ CLEAR_WARNING     	EQU 6040H      	; endereco do comando para apagar o aviso de 
 CLEAR_SCREEN	 	EQU 6002H      	; endereco do comando para apagar todos os pixels ja desenhados
 BACKGROUND_SELECT 	EQU 6042H      	; endereco do comando para selecionar uma imagem de fundo
 PLAY_SOUND			EQU 605AH      	; endereco do comando para tocar um som
+PLAY_SOUND_LOOP		EQU 605CH		; endereco do comando para tocar o som em loop
 
 ; ********************************************************************************
 ; Constantes
@@ -116,6 +117,8 @@ TOUCH_COIN_SOUND		EQU 1
 HIT_COIN_SOUND			EQU 2
 HIT_METEOR_SOUND		EQU 3
 TOUCH_METEOR_SOUND		EQU 4
+OUT_OF_GAS_GIF			EQU 5
+OUT_OF_GAS_SOUND		EQU 6
 
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
@@ -1171,8 +1174,10 @@ test_display_limits:
 test_display_min:
 	MOV R5, DISPLAY_MIN					; valor minimo do display
 	CMP R1, R5
-	JZ end_test_display_limits			; ja nao pode diminuir mais
-	; OUT OF GAS
+	JGT test_display_max		; ja nao pode diminuir mais
+	MOV R1, R5
+	CALL out_of_gas
+	JMP end_test_display_limits
 
 test_display_max:
 	MOV R5, DISPLAY_MAX					; valor minimo do display
@@ -1465,7 +1470,16 @@ end_keyboard:
 ; **************************
 ;
 ; **************************
-
+out_of_gas:
+	PUSH R1
+	MOV R1, OUT_OF_GAS_GIF
+	MOV [PLAY_SOUND], R1
+	MOV R1, OUT_OF_GAS_SOUND
+	MOV [PLAY_SOUND], R1
+	MOV R1, ON
+	MOV [STOP], R1
+	POP R1
+	RET
 
 ; **************************
 ;
