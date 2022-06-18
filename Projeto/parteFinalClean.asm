@@ -19,10 +19,10 @@ KEY_LIN				EQU 0C000H	; endereço das linhas do teclado (periférico POUT-2)
 KEY_COL				EQU 0E000H	; endereço das colunas do teclado (periférico PIN)
 MASCARA				EQU 0FH		; para isolar os 4 bits de menor peso, ao ler as colunas do teclado
 DISPLAY				EQU 0A000H 	; endereço do display
-DISPLAY_TIME	EQU 0FFFBH	; value that the interruption will make the display increase
-DISPLAY_COIN	EQU 000AH	; value that increases display in colision with coin
-DISPLAY_METEOR EQU 0005H   ; value that increases display of missile colision with coin		
-DISPLAY_MISSIL EQU 0FFFBH	; value that decreases display by the fire of a missil
+DISPLAY_TIME		EQU 0FFFBH	; value that the interruption will make the display decrease
+DISPLAY_COIN		EQU 000AH	; value that increases display in colision with coin
+DISPLAY_METEOR 		EQU 0005H   ; value that increases display of missile colision with coin		
+DISPLAY_MISSIL 		EQU 0FFFBH	; value that decreases display by the fire of a missil
 
 
 DEFINE_LINHA    		EQU 600AH      	; endereco do comando para definir a linha
@@ -71,26 +71,37 @@ INCREMENTACAO_DISPLAY	EQU 0AH ; valor que aumenta no display caso atinja uma moe
 
 LARGURA_ROVER		EQU	5		; largura do ROVER
 ALTURA_ROVER		EQU 4		; altura do ROVER
+
 LARGURA_FRAGMENTO1	EQU 1		; largura do fragmento 1
 ALTURA_FRAGMENTO1	EQU 1		; altura do fragmento 1
+
 LARGURA_FRAGMENTO2	EQU 2		; largura do fragmento 2
 ALTURA_FRAGMENTO2	EQU 2		; altura do fragmento 2
+
 LARGURA_METEORO1	EQU 3		; largura do meteoro nivel 1
 ALTURA_METEORO1		EQU 3		; altura do meteoro nivel 1
+
 LARGURA_METEORO2	EQU 4		; largura do meteoro nivel 2
 ALTURA_METEORO2		EQU 4		; altura do meteoro nivel 2
+
 LARGURA_METEORO3	EQU	5		; largura do meteoro nivel 3
 ALTURA_METEORO3		EQU 5		; altura do meteoro nivel 3
+
 LARGURA_MOEDA1		EQU 3		; largura do moeda nivel 1
 ALTURA_MOEDA1		EQU 3		; altura do moeda nivel 1
+
 LARGURA_MOEDA2		EQU 4		; largura do moeda nivel 2
 ALTURA_MOEDA2		EQU 4		; altura do moeda nivel 2
+
 LARGURA_MOEDA3		EQU	5		; largura do moeda nivel 3
 ALTURA_MOEDA3		EQU 5		; altura do moeda nivel 3
+
 LARGURA_EXPLOSAO	EQU 5		; largura da explosao
 ALTURA_EXPLOSAO		EQU 5		; altura da explosao
+
 LARGURA_MISSIL		EQU 1		; largura do missil
 ALTURA_MISSIL		EQU 1		; altura do missil
+
 MAX_LINHA_MISSIL	EQU 19		; máximo altura missil
 
 TIPO_EXPLOSAO		EQU 3
@@ -112,6 +123,7 @@ SOM_DISPARO			EQU 0
 SOM_TOCAR_MOEDA		EQU 1
 SOM_ACERTAR_MOEDA	EQU 2
 SOM_ACERTAR_METEORO	EQU 3
+SOM_ROVER_EXPLOSAO	EQU 4
 
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
@@ -664,6 +676,8 @@ test_X_moeda:
 
 
 handle_colision_meteoro:
+	MOV R1, SOM_ROVER_EXPLOSAO
+	MOV [TOCA_SOM], R1
 	MOV R1, ON
 	MOV [STOP], R1
 	JMP sai_colision
@@ -1085,18 +1099,32 @@ UPDATE_DISPLAY:
 	PUSH R1
 	PUSH R2
 	PUSH R3
-	MOV R2,[INC_DEC_DISPLAY]
-	CMP R2,0
+	PUSH R6
+	MOV R2,[INC_DEC_DISPLAY]	; R2 = valor a somar ao display
+	CMP R2, 0
 	JZ EXIT_UPDATE_DISPLAY
 	MOV R1, [DISPLAY_VAL]
 	CALL testa_limites_display
-	MOV [DISPLAY_VAL], R1
-	CALL HEX_TO_DEC
-	MOV [DISPLAY], R1			; altera o display 
+	MOV [DISPLAY_VAL], R1		; guarda em memoria o novo valor do display
+	MOV R6, DISPLAY_MAX
+	CMP R1, R6
+	JZ	CHANGE_DISPLAY_100
+	CALL HEX_TO_DEC				; altera-se este vaor para decimal
+
+CHANGE_DISPLAY:
+	MOV [DISPLAY], R1			; altera o display com o valor em decimal
+	MOV R3, OFF
+	MOV [INC_DEC_DISPLAY],R3
+	JMP EXIT_UPDATE_DISPLAY
+
+CHANGE_DISPLAY_100:
+	MOV R1, DISPLAY_MAX_INIT
+	MOV [DISPLAY], R1			; altera o display com o valor em decimal
 	MOV R3, OFF
 	MOV [INC_DEC_DISPLAY],R3
 
 EXIT_UPDATE_DISPLAY:
+	POP R6
 	POP R3
 	POP R2
 	POP R1
@@ -1107,7 +1135,7 @@ EXIT_UPDATE_DISPLAY:
 ; Argumentos:   R1 - número hexadecimal
 ;
 ; **********************************************************************
-HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H) para decimal
+HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H EXCLUSIVE) para decimal
 	PUSH R0 					; converte o numero em R1, e deixa-o em R1
 	PUSH R2
 	MOV  R0, HEXTODEC
@@ -1126,22 +1154,27 @@ HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H) para decimal
 ; Argumentos:	R1 - valor do display
 ;				R2 - valor a aumentar ou diminuir no display
 ;
-; Retorna: 		R7 - 0 se ja tiver chegado ao limite, inalterado caso contrario
+; Retorna: 		R2 - 0 se ja tiver chegado ao limite, inalterado caso contrario
 ;
 ; **********************************************************
 testa_limites_display:
 	PUSH R2
-	PUSH R5
-	PUSH R6
+	PUSH R5	
+	ADD R1, R2
+
 testa_display_min:
 	MOV R5, DISPLAY_MIN					; valor minimo do display
 	CMP R1, R5
 	JZ sai_testa_limites_display			; ja nao pode diminuir mais
-	ADD R1, R2		; valor atual do display
-	MOV [DISPLAY_VAL], R1		; altera o valor guardado do display
-	JMP sai_testa_limites_display
+	; OUT OF GAS
+
+testa_display_max:
+	MOV R5, DISPLAY_MAX					; valor minimo do display
+	CMP R1, R5
+	JLE sai_testa_limites_display			; ja nao pode diminuir mais
+	MOV R1, R5
+
 sai_testa_limites_display:
-	POP R6
 	POP R5
 	POP R2
 	RET
@@ -1630,7 +1663,7 @@ rot_int_1:
 ; **********************************************************************
 ; ROT_INT_2 -	Rotina de atendimento da interrupcao 2
 ;			Records in the memory the value 1 and the value of how much
-;			the display will increase (5%)
+;			the display will decrease (5%)
 ; **********************************************************************
 rot_int_2:
 	PUSH R1

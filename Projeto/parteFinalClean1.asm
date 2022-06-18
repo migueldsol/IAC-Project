@@ -715,9 +715,9 @@ sai_colision:
 meteoro:
 	PUSH R1
 	PUSH R3
-	;MOV R1, [INTERRUPCAO_METEORO]
-	;CMP R1, OFF
-	;JZ sai_meteoro
+	MOV R1, [INTERRUPCAO_METEORO]
+	CMP R1, OFF
+	JZ sai_meteoro
 	MOV R3, 0				; numero do meteoro
 	CALL anima_meteoro
 
