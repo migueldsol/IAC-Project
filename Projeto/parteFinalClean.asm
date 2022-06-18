@@ -31,9 +31,9 @@ DEF_PIXEL    		EQU 6012H      	; endereco do comando para escrever um pixel
 CLEAR_WARNING     	EQU 6040H      	; endereco do comando para apagar o aviso de nenhum cenário selecionado
 CLEAR_SCREEN	 	EQU 6002H      	; endereco do comando para apagar todos os pixels ja desenhados
 BACKGROUND_SELECT 	EQU 6042H      	; endereco do comando para selecionar uma imagem de fundo
-PLAY_SOUND			EQU 605AH      	; endereco do comando para tocar um som
-PLAY_SOUND_LOOP		EQU 605CH		; endereco do comando para tocar o som em loop
-
+PLAY_MULTIMEDIA			EQU 605AH      	; endereco do comando para tocar um som
+PLAY_MULTIMEDIA_LOOP		EQU 605CH		; endereco do comando para tocar a multimedia em loop
+STOP_MULTIMEDIA_LOOP		EQU 6066H		; endereco do comando para para o som em loop
 ; ********************************************************************************
 ; Constantes
 ; ********************************************************************************
@@ -47,7 +47,8 @@ FALSE				EQU 0
 KEY_LEFT			EQU 4		; tecla para movimentar para a esquerda (tecla 4)
 KEY_RIGHT			EQU 6		; tecla para movimentar para a direita (tecla 6)
 KEY_FIRE_MISSILE	EQU 1		; tecla para disparar umm missil (tecla 1)
-KEY_START			EQU 8		; tecla para iniciar/continuar o jogo (tecla 8)
+KEY_START			EQU 8		; tecla para iniciar jogo (tecla 8)
+KEY_PAUSE_UNPAUSE	EQU 9		; tecla para reiniciar o jogo (tecla 9)
 
 LINE_ROVER      EQU  28     ; linha do boneco (posicao mais baixa)
 COL_ROVER		EQU  30     ; coluna do boneco (a meio do ecra)
@@ -118,7 +119,6 @@ HIT_COIN_SOUND			EQU 2
 HIT_METEOR_SOUND		EQU 3
 TOUCH_METEOR_SOUND		EQU 4
 OUT_OF_GAS_GIF			EQU 5
-OUT_OF_GAS_SOUND		EQU 6
 
 RED		EQU	0FF00H		; cor vermelha
 BLACK	EQU 0F000H		; cor preta
@@ -150,7 +150,8 @@ INTERRUPTION_ENERGIA: 		WORD 0000H	; endereço de memória do valor de ativaçã
 MISSILE_NUMBER:				WORD 0000H	; endereco de memoria do numero de misseis no ecra
 PRESSED_KEY:				WORD 0000H	; endereco de memoria da tecla premida
 RANDOM_NUMBER:  			WORD 0000H	; endereco de memoria do numero random
-STOP:						WORD 0000H	; endereco de memoria do condicao
+LOST_COLISION:				WORD 0000H	; endereco de memoria do condicao
+LOST_GAS:					WORD 0000H 	; enderco de memoria da condicao
 COLISION_MISSILE_HAPPENED: 	WORD 0000H	; endereco de memoria da condicao  
 COLISION_MISSILE_POSSIBLE: 	WORD 0000H	; endereco de memoria da condicao  
 
@@ -304,29 +305,48 @@ beginning:
 start_menu:
 	MOV	R1, START_MENU								; cenario de fundo numero 0
     MOV  [BACKGROUND_SELECT], R1	
-	CALL wait_key_play
+	MOV R1, KEY_START
+	CALL wait_key
 	CALL restart
 	JMP main
 
 ; *****************
 ;
 ;*****************
-lost:
+check_lost_colision:
+	PUSH R1
+	PUSH R2
+	MOV R1, ON
+	MOV R2, [LOST_COLISION]
+	CMP R2, R1
+	JNZ end_check_lost_colision
+	CALL lose
 	CALL  lose_contact
-	CALL wait_key_play
+	MOV R1, KEY_START
+	CALL wait_key
 	CALL restart
-	JMP main
-
-; *****************
-;
-;*****************
-restart:
-	CALL init_game_various
-	CALL init_display	;dá reset ao display
-	CALL init_rover
-	CALL reset_objects
-	
+end_check_lost_colision:
+	POP R2
+	POP R1
 	RET
+
+check_out_of_gas:
+	PUSH R1
+	PUSH R2
+	MOV R1, ON
+	MOV R2, [LOST_GAS]
+	CMP R2, R1
+	JNZ end_check_out_of_gas
+	CALL lose
+	CALL  lose_gas
+	MOV R1, KEY_START
+	CALL wait_key
+	CALL restart
+end_check_out_of_gas:
+	POP R2
+	POP R1
+	RET
+
 
 ; *****************
 ;
@@ -336,14 +356,13 @@ main:
 	CALL test_pause
 	CALL rover				; Move Rover caso tecla tenha sido premida
 	CALL missile
+	CALL check_out_of_gas
 	CALL meteor
 	CALL colision_object_init
 	CALL colision_missile_init
 	CALL update_display
-	MOV R1, ON				; ESTA PARTE ESTÁ FEIA -------------------------
-	MOV R2, [STOP]			; NAO SEI COMO MELHORAR-----------------------
-	CMP R2, R1
-	JZ lost
+	CALL check_out_of_gas
+	CALL check_lost_colision
 	JMP main
 
 
@@ -461,7 +480,7 @@ handle_colision_missile_meteor:
 	MOV R1, DISPLAY_METEOR
 	MOV [INC_DEC_DISPLAY], R1
 	MOV R1, HIT_METEOR_SOUND	
-	MOV [PLAY_SOUND], R1	; faz o som
+	MOV [PLAY_MULTIMEDIA], R1	; faz o som
 	MOV R5, DEF_METEOR_3
 	CALL draw_explosion
 	POP R5
@@ -475,7 +494,7 @@ handle_colision_missile_coin:
 	PUSH R1
 	PUSH R5
 	MOV R1, HIT_COIN_SOUND
-	MOV [PLAY_SOUND], R1		; faz o som
+	MOV [PLAY_MULTIMEDIA], R1		; faz o som
 	MOV R5, DEF_COIN_3
 	CALL draw_explosion
 	POP R5
@@ -678,9 +697,9 @@ coin_test_X:
 
 handle_colision_meteor:
 	MOV R1, TOUCH_METEOR_SOUND
-	MOV [PLAY_SOUND], R1
+	MOV [PLAY_MULTIMEDIA], R1
 	MOV R1, ON
-	MOV [STOP], R1
+	MOV [LOST_COLISION], R1
 	JMP end_colision
 
 
@@ -697,7 +716,7 @@ handle_colision_coin:   ; alterar ------------------ nao e o que deve acontecer 
 	MOV R1, TYPE_UNDEFINED
 	MOV [R3], R1
 	MOV R1, TOUCH_COIN_SOUND
-	MOV [PLAY_SOUND], R1	
+	MOV [PLAY_MULTIMEDIA], R1	
 	JMP cycle
 
 cycle:
@@ -1024,7 +1043,7 @@ draw_missile:
 	MOV R1, DISPLAY_MISSILE
 	MOV [INC_DEC_DISPLAY], R1
 	MOV R2, FIRE_MISSILE_SOUND
-	MOV [PLAY_SOUND], R2			; toca o som de quando o missil foi disparado
+	MOV [PLAY_MULTIMEDIA], R2			; toca o som de quando o missil foi disparado
 	MOV R2, [POS_ROVER_X]
 	MOV R1, [POS_ROVER_Y]
 	SUB R1, 1
@@ -1168,6 +1187,7 @@ HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H EXCLUSIVE) para decima
 ; **********************************************************
 test_display_limits:
 	PUSH R2
+	PUSH R3
 	PUSH R5	
 	ADD R1, R2
 
@@ -1176,7 +1196,8 @@ test_display_min:
 	CMP R1, R5
 	JGT test_display_max		; ja nao pode diminuir mais
 	MOV R1, R5
-	CALL out_of_gas
+	MOV R3, TRUE
+	MOV [LOST_GAS], R3
 	JMP end_test_display_limits
 
 test_display_max:
@@ -1187,6 +1208,7 @@ test_display_max:
 
 end_test_display_limits:
 	POP R5
+	POP R3
 	POP R2
 	RET
 
@@ -1416,7 +1438,7 @@ ciclo:
     MOV R7, R1         	; escreve calculo posicao linha a zero
     MOV R8, R1         	; escreve caluclo posicao coluna a zero
 	MOV R9, 8
-wait_key:          	; neste ciclo espera-se ate uma tecla ser premida
+wait_for_key:          	; neste ciclo espera-se ate uma tecla ser premida
     MOVB [R2],R0       	; ler pertiferico de saida (linhas)
     MOVB R1, [R3]      	; ler do periferico de entrada (colunas)
     AND  R1, R5        	; elimina bits para alem dos bits 0-3
@@ -1426,7 +1448,7 @@ wait_key:          	; neste ciclo espera-se ate uma tecla ser premida
     CMP R0,R9          	; verifica se ja chegou ao valor 8
     JZ no_key
     SHL R0,1           	; passa para a proxima linha
-    JMP wait_key   	; se nenhuma tecla premida repete
+    JMP wait_for_key   	; se nenhuma tecla premida repete
 calculate_col:
     SHR R1,1           	; realiza um shift right
     CMP R1,0           	; verifica se ainda nao está na coluna certa
@@ -1466,26 +1488,20 @@ end_keyboard:
 ; **********************************************************************
 ;		Rotinas Auxiliares
 ; **********************************************************************
-
-; **************************
+; *****************
 ;
-; **************************
-out_of_gas:
-	PUSH R1
-	MOV R1, OUT_OF_GAS_GIF
-	MOV [PLAY_SOUND], R1
-	MOV R1, OUT_OF_GAS_SOUND
-	MOV [PLAY_SOUND], R1
-	MOV R1, ON
-	MOV [STOP], R1
-	POP R1
+;*****************
+restart:
+	CALL init_game_various
+	CALL init_display	;dá reset ao display
+	CALL init_rover
+	CALL reset_objects
 	RET
-
 ; **************************
 ;
 ; **************************
 
-reset_objects:
+reset_objects:	
 	PUSH R1
 	PUSH R2
 	PUSH R3
@@ -1529,6 +1545,8 @@ init_rover:
 ; **************************
 init_game_various:
 	PUSH R1
+	MOV R1, OUT_OF_GAS_GIF
+	MOV [STOP_MULTIMEDIA_LOOP], R1
 	MOV R1, 0
 	MOV [INC_DEC_DISPLAY], R1
 	MOV [INTERRUPTION_ENERGIA], R1
@@ -1536,29 +1554,28 @@ init_game_various:
 	MOV [INTERUPTION_MISSILE], R1
 	MOV [MISSILE_NUMBER], R1
 	MOV [PRESSED_KEY], R1
-	MOV [STOP], R1
+	MOV [LOST_COLISION], R1
+	MOV [LOST_GAS], R1
 	MOV R1, STANDARD_BACKGROUND
 	MOV  [BACKGROUND_SELECT], R1		; seleciona o cenario de fundo
 	POP R1
 	RET
 ; *****************
-;
+; R1 - tecla que tem de ser premida
 ;*****************
 
-wait_key_play:
+wait_key:
 	PUSH R1
 	PUSH R2
 wait_play:			; seleciona o cenario de fundo
 	CALL keyboard
 	MOV R2, [PRESSED_KEY]
-	MOV R1, KEY_START
 	CMP R2, R1
 	JNZ wait_play
 
 wait_play_2:
 	CALL keyboard
 	MOV R2, [PRESSED_KEY]
-	MOV R1, KEY_START
 	CMP R2, R1
 	JNZ end_wait_key_play
 	JMP wait_play_2
@@ -1574,58 +1591,41 @@ end_wait_key_play:
 ; **************************
 
 test_pause:
-	PUSH R1
+	PUSH R1 
 	PUSH R2
+	PUSH R3
 
-	MOV R1, [PRESSED_KEY]
-	MOV R2, KEY_START
-	CMP R2, R1
+	MOV R3, [PRESSED_KEY]
+	MOV R1, KEY_PAUSE_UNPAUSE
+	CMP R1, R3
 	JNZ end_test_pause
 
-	CALL wait_release_pause
-	MOV R1, PAUSE_MENU
-	MOV [BACKGROUND_SELECT], R1
+	CALL wait_key
+	MOV R3, PAUSE_MENU
+	MOV [BACKGROUND_SELECT], R3
 game_paused:
 	CALL keyboard
-	MOV R1, [PRESSED_KEY]
-	MOV R2, KEY_START
-	CMP R2, R1
-
+	MOV R3, [PRESSED_KEY]
+	CMP R1, R3
 	JNZ game_paused
-	CALL wait_release_pause
-	MOV R1, STANDARD_BACKGROUND
-	MOV [BACKGROUND_SELECT], R1
+	
+	CALL wait_key
+	MOV R3, STANDARD_BACKGROUND
+	MOV [BACKGROUND_SELECT], R3
 end_test_pause:
 	
-	POP R2
+	POP R3
 	POP R1
+	POP R2
 	RET
 
-
-
-; ********************************
-;
-; ********************************
-wait_release_pause:
-	PUSH R1
-	PUSH R2
-wait_release_pause_cycle:
-	CALL keyboard
-	MOV R1, [PRESSED_KEY]
-	MOV R2, KEY_START
-	CMP R2, R1
-	JZ wait_release_pause_cycle
-end_wait_release_pause:
-	POP R2
-	POP R1
-	RET
 
 
 ; *************************
 ;
 ; **************************
 
-lose_contact:
+lose:
 	PUSH R1
 	PUSH R2
 	PUSH R4
@@ -1633,13 +1633,24 @@ lose_contact:
 	MOV R2, 0
 	MOV R4, DEF_SCREEN
 	CALL erase_object
-	MOV R1, LOSE_CONTACT_METEOR
-	MOV [BACKGROUND_SELECT], R1
 	POP R4
 	POP R2
 	POP R1
 	RET
 
+lose_contact:
+	PUSH R1
+	MOV R1, LOSE_CONTACT_METEOR
+	MOV [BACKGROUND_SELECT], R1
+	POP R1
+	RET
+
+lose_gas:
+	PUSH R1
+	MOV R1, OUT_OF_GAS_GIF
+	MOV [PLAY_MULTIMEDIA_LOOP], R1
+	POP R1
+	RET
 
 ; *************************
 ;
