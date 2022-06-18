@@ -300,70 +300,17 @@ beginning:
 	EI										; permite interrupções (geral)
 
 
-; *****************
-;
-;*****************
+; *********************************
+; start_menu: menu do comeco jogo
+;*********************************
 start_menu:
 	MOV	R1, START_MENU								; cenario de fundo numero 0
     MOV  [BACKGROUND_SELECT], R1	
 	MOV R1, KEY_START
-	CALL wait_key
-	CALL restart
+	CALL wait_key								; espera que seja premida a tecla START
+	CALL restart								; se sim comeca o jogo
 	JMP main
 
-; *****************
-;
-;*****************
-check_lost_colision:
-	PUSH R1
-	PUSH R2
-	MOV R1, ON
-	MOV R2, [LOST_COLISION]
-	CMP R2, R1
-	JNZ end_check_lost_colision
-	CALL lose
-	CALL  lose_contact
-	MOV R1, KEY_START
-	CALL wait_key
-	CALL restart
-end_check_lost_colision:
-	POP R2
-	POP R1
-	RET
-
-check_out_of_gas:
-	PUSH R1
-	PUSH R2
-	MOV R1, ON
-	MOV R2, [LOST_GAS]
-	CMP R2, R1
-	JNZ end_check_out_of_gas
-	CALL lose
-	CALL  lose_gas
-	MOV R1, KEY_START
-	CALL wait_key
-	CALL restart
-end_check_out_of_gas:
-	POP R2
-	POP R1
-	RET
-
-check_pressed_stop:
-	PUSH R1
-	PUSH R2
-	MOV R1, [PRESSED_KEY]
-	MOV R2, KEY_STOP
-	CMP R1, R2
-	JNZ end_check_pressed_stop
-	CALL lose
-	CALL stop_pressed
-	MOV R1, KEY_START
-	CALL wait_key
-	CALL restart
-	end_check_pressed_stop:
-	POP R2
-	POP R1
-	RET
 
 ; *************************************************************************;
 ;	main - ciclo infinito principal que chama as rotinas coperativas 	   ;
@@ -726,31 +673,31 @@ colision_missile_init:
 	JZ 	end_colision_missile 	; se nao houver missil nao e necessario verificar a colisao
 	MOV R3 , 0					; counter iteracao iniciado a 0
 	
-colision_missile_main:				; PODE SER FACILMENTE CLEANED UP -------------------------
+colision_missile_main:				
 	MOV R7, R3					
 	SHL R7, 1		
-	MOV R0, coord_objects		;endereço da tabela das coordenadas
-	ADD R0, R7					; R0 enderco da tabela coord
-	MOV R1,[R0]					; R1 = enderco da pos Y
-	MOV R6, [R1]				; R6 = pos Y do objeto
-	MOV R4,	15				; altura a que os objetos ficam no seu tamanho maximo
+	MOV R0, coord_objects			;endereço da tabela das coordenadas
+	ADD R0, R7						; R0 enderco da tabela coord
+	MOV R1,[R0]						; R1 = enderco da pos Y
+	MOV R6, [R1]					; R6 = pos Y do objeto
+	MOV R4,	15						; altura a que os objetos ficam no seu tamanho maximo
 	CMP R6,R4						
-	JLT next_object			;se a colisao nao for possivel entao salta para o proximo objeto
+	JLT next_object					;se a colisao nao for possivel entao salta para o proximo objeto
 
 	ADD R1, MOVE_NEXT_TWO_WORDS	
 	MOV R2, [R1]					; R2 passa a ser o tipo de objeto
-	CMP R2, TYPE_METEOR			; se for um meteoro
-	MOV R4, DEF_METEOR_3		; colisoes so podem acontecer com objetos grandes
+	CMP R2, TYPE_METEOR				; se for um meteoro
+	MOV R4, DEF_METEOR_3			; colisoes so podem acontecer com objetos grandes
 	JZ colision_missile_object
 	CMP R2, TYPE_COIN				; se for uma moeda
-	MOV R4, DEF_COIN_3		; colisoes so podem acontecer com objetos grandes
+	MOV R4, DEF_COIN_3				; colisoes so podem acontecer com objetos grandes
 	JZ colision_missile_object
 	JMP next_object					; se for uma explosao
 
-colision_missile_object:			; PODE SER JUNTA COM A COLISAO MISSILE COIN
-	SUB R1, MOVE_PREVIOUS_TWO_WORDS					; R1 de volta a pos Y
+colision_missile_object:			
+	SUB R1, MOVE_PREVIOUS_TWO_WORDS		; R1 de volta a pos Y
 	MOV R0, R1
-	CALL colision_missile		; R0 = tabela do objeto, R4 = def do objeto
+	CALL colision_missile				; R0 = tabela do objeto, R4 = def do objeto
 	CMP R8 , 1
 	JNZ next_object
 	CALL handle_colision_missile_coin
@@ -778,231 +725,312 @@ end_colision_missile:
 	RET
 
 
-
-; **********************
+; ************************************************************************
+; update_display - atualiza o display
 ;
-;******************
+; ************************************************************************
 
-colision_happened_check:
-	PUSH R9
-	MOV R9, [COLISION_MISSILE_HAPPENED]
-	CMP R9, TRUE
-	JNZ end_colision_happened_check
-	MOV R9, 0
-	MOV [MISSILE_NUMBER], R9
-	MOV [COLISION_MISSILE_HAPPENED], R9
-end_colision_happened_check:
-	POP R9
-	RET
-
-
-; **********************
-;
-;******************
-
-handle_colision_missile_meteor:
-	PUSH R1
-	PUSH R5
-	CMP R2, TYPE_METEOR
-	JNZ exit_handle_meteor
-	MOV R1, DISPLAY_METEOR
-	MOV [INC_DEC_DISPLAY], R1
-	MOV R1, HIT_METEOR_SOUND	
-	MOV [PLAY_MULTIMEDIA], R1	; faz o som
-	MOV R5, DEF_METEOR_3
-	CALL draw_explosion
-exit_handle_meteor:
-	POP R5
-	POP R1
-	RET
-
-; **********************
-;
-;******************
-handle_colision_missile_coin:
-	PUSH R1
-	PUSH R5
-	CMP R2, TYPE_COIN				; se for uma moeda
-	JNZ exit_handle_coin
-	MOV R1, HIT_COIN_SOUND
-	MOV [PLAY_MULTIMEDIA], R1		; faz o som
-	MOV R5, DEF_COIN_3
-	CALL draw_explosion
-exit_handle_coin:
-	POP R5
-	POP R1
-	RET
-
-
-
-; **********************
-;
-;******************
-draw_explosion:
-	PUSH R1
-	PUSH R2
-	PUSH R4
-	PUSH R9
-
-	MOV R1, [POS_MISSILE_Y]
-	MOV R2, [POS_MISSILE_X]
-	MOV R4, DEF_MISSILE
-	CALL erase_object		;apaga o missil
-
-	MOV R1, [R0]			; R1 = POS Y
-	ADD R0, MOVE_NEXT_WORD
-	MOV R2, [R0]			; R2= POS X
-	MOV R4, R5	; R4 = DEF
-	CALL erase_object		; apaga o boneco
-
-	MOV R4, DEF_EXPLOSION	; R4 = DEF
-	CALL draw_object		; desenha a explosao
-	
-	ADD R0, MOVE_NEXT_WORD
-	MOV R4, TYPE_EXPLOSION
-	MOV [R0], R4			; muda o tipo do objeto para explosao
-	MOV R9, TRUE	; houve colisao
-	MOV [COLISION_MISSILE_HAPPENED], R9
-
-	POP  R9
-	POP R4
-	POP R2
-	POP R1
-	RET
-
-; *************************************************
-; R0 = tabela do objeto
-; R4 = Def do objeto
-; ***********************************************
-
-colision_missile: 				; R0 endereco do meteoro
-	PUSH R0
+update_display:
 	PUSH R1
 	PUSH R2
 	PUSH R3
-	PUSH R4
-	PUSH R5
 	PUSH R6
-	PUSH R7
-	
-	MOV  R8, FALSE
 
-	CALL set_coordinates_colision_missile
+	MOV R2,[INC_DEC_DISPLAY]	; R2 = valor a somar ao display
+	CMP R2, 0					; ve se e zero
+	JZ exit_update_display		; se for 0 sai da rotina
+	MOV R1, [DISPLAY_VAL]		; R1 = valor do display
+	CALL test_display_limits	; vai testar os limites do display (onde tambem vai ser somado o R2 AO R1)
+	MOV [DISPLAY_VAL], R1		; guarda em memoria o novo valor do display
+	MOV R6, DISPLAY_MAX			
+	CMP R1, R6					; ve se R1 e igual a 100
+	JZ	change_display_100		; como a rotina HEX_TO_DEC nao transforma munero acima de 62H
+								; e o unico caso onde temos que mostrar um valor desses no display
+								; e com o 64H criamos uma rotina que altere o display neste caso 
+	CALL HEX_TO_DEC				; altera-se este valor (quanso menor que 63H) para decimal
 
-	CMP  R4, R1
-	JLT  exit_missile_colision
-	CMP  R4, R5
-	JGT  exit_missile_colision
-	CMP  R7, R2
-	JLT  exit_missile_colision
-	CMP  R7, R6 	
-	JGT  exit_missile_colision 	; testam se o missil esta fora da "caixa" em que o meteoro se insere
+change_display:
+	MOV [DISPLAY], R1			; altera o display com o valor em decimal
+	MOV R3, OFF
+	MOV [INC_DEC_DISPLAY],R3
+	JMP exit_update_display
 
-	MOV  R8, TRUE
-exit_missile_colision:
-	POP	R7
+change_display_100:
+	MOV R1, DISPLAY_INIT
+	MOV [DISPLAY], R1			; altera o display com o valor 100
+	MOV R3, OFF
+	MOV [INC_DEC_DISPLAY],R3
+
+exit_update_display:			; sai da rotina
 	POP R6
-	POP R5
-	POP R4
 	POP R3
 	POP R2
 	POP R1
-	POP R0
-	RET
-	
-
-; **********************
-;
-;******************
-
-set_coordinates_colision_missile:
-	MOV R2, [R0] 				; coordenada Y do meteoro
-	ADD  R0, MOVE_NEXT_WORD
-	MOV R1, [R0] 				; coordenada X do meteoro
-
-	MOV R5, [R4] 				; largura do meteoro
-	ADD  R5,R1 					
-	SUB R5, 1					; coordenada x mais a direita do meteoro
-	ADD  R4, MOVE_NEXT_WORD
-	MOV R6, [R4] 				; altura do meteoro
-	ADD  R6,R2 				
-	SUB R6, 1						; coordenada y mais a baixo do meteoro
-	MOV R4, [POS_MISSILE_X] 				; coordenada x do missil
-	MOV R7, [POS_MISSILE_Y] 				; coordenada y do missil
 	RET
 
-;************************************************************************
 
+; ***********************************************************
+; check_out_of_gas: verifica se o rover ficou sem combustivel
+;************************************************************
 
-
-
-
-
-
-; ****************************
-;
-; ***************************
-
-
-; ***********************
-;
-; *********************
-
-random_number_0_8:	; obtem um numero random entre 0 e 8
-	PUSH R0
-	PUSH R1
-	MOV R1,KEY_COL
-	MOVB R0, [R1]
-	SHR R0, 5
-	MOV [RANDOM_NUMBER], R0
-	POP R1
-	POP R0
-	RET
-
-; ***********************
-;
-; *********************
-random_column:		; obtem uma coluna random com os valores: 0,8,16,24,32,40,48,56
-	PUSH R0
-	PUSH R1
-	CALL random_number_0_8
-	MOV R1, [RANDOM_NUMBER]
-	MOV R0, 8
-	MUL R1, R0
-	MOV [RANDOM_NUMBER], R1
-	POP R1
-	POP R0
-	RET
-
-; ***********************
-;
-; *********************
-random_type:		; obtem um tipo random sendo moeda quando o valor e 48 ou 56, e meteoro no resto
-	PUSH R0
+check_out_of_gas:
 	PUSH R1
 	PUSH R2
-	CALL random_number_0_8
-	MOV R1, [RANDOM_NUMBER]
-	MOV R0, 8
-	MUL R1, R0
-	MOV R2, 48
-	CMP R1, R2
-	JGE random_type_moeda
-	MOV R1, TYPE_METEOR
-	MOV [RANDOM_NUMBER], R1
-	JMP random_type_end
-random_type_moeda:
-	MOV R1, TYPE_COIN
-	MOV [RANDOM_NUMBER],R1
-	JMP random_type_end
-random_type_end:
-	MOV [RANDOM_NUMBER], R1
+	MOV R1, ON
+	MOV R2, [LOST_GAS]			
+	CMP R2, R1					; verifica se a variavel em meomria LOST_GAS esta ativada
+	JNZ end_check_out_of_gas	; se nao estiver sai da rotina
+	CALL lose					; se estiver chama as rotinas
+	CALL  lose_gas				
+	MOV R1, KEY_START			
+	CALL wait_key				; espera que seja premida a tecla de start
+	CALL restart				; se sim recomeca o jogo
+end_check_out_of_gas:			; sai da rotina
 	POP R2
 	POP R1
-	POP R0
 	RET
+
+; **********************************************************************************************
+;check_lost_colision: verifica se houve uma colisao entre o rover e o meteoro, o que leva a um
+;						GAME OVER
+;***********************************************************************************************
+
+check_lost_colision:
+	PUSH R1
+	PUSH R2
+	MOV R1, ON
+	MOV R2, [LOST_COLISION]
+	CMP R2, R1						; verifica se a variavel em memória LOST_COLISION foi ativada
+	JNZ end_check_lost_colision		; se nao foi sai da rotina
+	CALL lose						; se foi chama as rotinas 
+	CALL  lose_contact				
+	MOV R1, KEY_START
+	CALL wait_key					; espera que seja premida a tecla START
+	CALL restart					; quando premida recomeca o jogo
+end_check_lost_colision:
+	POP R2
+	POP R1
+	RET
+
+
+; **********************************************************************************************
+;check_pressed_stop: verifica se foi premida a tecla stop (A)
+;***********************************************************************************************
+
+check_pressed_stop:
+	PUSH R1
+	PUSH R2
+	MOV R1, [PRESSED_KEY]
+	MOV R2, KEY_STOP
+	CMP R1, R2						; compara a tecla premida com a tecla stop (A)
+	JNZ end_check_pressed_stop		; se nao foi sai da rotina
+	CALL lose						; se estiver chama as rotinas
+	CALL stop_pressed
+	MOV R1, KEY_START	
+	CALL wait_key					; espera que seja premida a tecla de start
+	CALL restart					; se sim recomeca o jogo
+	end_check_pressed_stop:
+	POP R2
+	POP R1
+	RET
+
+
 ; **********************************************************************
-; ANIMA_METEORO - Rotina cooperativa que desenha e faz descer o objeto
+;		Rotinas Auxiliares
+; **********************************************************************
+
+
+; *********************************
+; wait_key: espera por uma tecla
+;
+; argumento: R1 - tecla pretendida
+; *********************************
+
+wait_key:
+	PUSH R1
+	PUSH R2
+wait_play:			
+	CALL keyboard			; chama o teclado
+	MOV R2, [PRESSED_KEY]
+	CMP R2, R1				; compara a tecla pressionada com a pretendida
+	JNZ wait_play			
+
+wait_play_2:
+	CALL keyboard			; chama o teclado
+	MOV R2, [PRESSED_KEY]
+	CMP R2, R1				; compara a tecla pressionada com a pretendida
+	JNZ end_wait_key_play
+	JMP wait_play_2
+
+end_wait_key_play:
+	POP R2
+	POP R1
+	RET
+
+; **********************************************************************
+; test_rover_limits - Testa se o rover chegou aos limites do ecra e nesse caso
+;			   			impede o movimento (forca R7 a 0)
+; Argumentos:	R2 - coluna em que o objeto está
+;				R6 - largura do boneco
+;				R7 - sentido de movimento do boneco (valor a somar a coluna
+;					em cada movimento: +1 para a direita, -1 para a esquerda)
+;
+; Retorna: 		R7 - 0 se ja tiver chegado ao limite, inalterado caso contrario	
+;
+; **********************************************************************
+test_rover_limits:
+	PUSH	R2
+	PUSH	R5
+	PUSH	R6
+lado_a_testar:
+	CMP	R0, KEY_RIGHT					
+	JZ	test_right_limit	; se se for deslocar para a direita
+	CMP R0, KEY_LEFT
+	JZ	test_left_limit	; se se for deslocar para a esquerda
+	MOV R1, 0
+	JMP end_test_rover_limits
+test_left_limit:			; vê se o rover chegou ao limite esquerdo
+	MOV	R5, COL_MIN			; obtem o valor da coluna minima
+	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
+	CMP	R2, R5					; compara a posicao do rover com o limite esquerdo
+	JZ	no_movement		; ja nao pode mover mais
+	MOV R7, -1
+	JMP end_test_rover_limits		; entre limites, mantem o valor do R7
+test_right_limit:			; ve se o boneco chegou ao limite direito	
+	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
+	MOV R6, [DEF_ROVER]			; obtem a largura do rover
+	ADD	R6, R2					; posicao do extremo direito do boneco + 1
+	SUB R6, 1					; posicao do extremo direito do boneco
+	MOV	R5, COL_MAX			; obtem o valor da coluna maxima
+	CMP	R6, R5
+	JZ no_movement			; ja nao pode mover mais
+	MOV R7, 1
+	JMP	end_test_rover_limits		; entre limites, mantem o valor do R7
+no_movement:
+	MOV	R7, 0					; impede o movimento, forçando R7 a 0
+end_test_rover_limits:	
+	POP	R6
+	POP	R5
+	POP R2
+	RET
+
+; **********************************************************************
+; erase_object - Apaga um boneco na linha e coluna indicadas
+;			  com a forma definida na tabela indicada.
+; Argumentos:   R1 - linha
+;               R2 - coluna
+;               R4 - tabela que define o boneco
+;
+; **********************************************************************
+erase_object:
+	PUSH	R1
+	PUSH	R2
+	PUSH	R3
+	PUSH	R4
+	PUSH	R5
+	PUSH 	R6
+	PUSH 	R7
+
+	MOV R7, R2				; guarda o valor da coluna
+	MOV	R5, [R4]			; obtem a largura do boneco
+	ADD R4, MOVE_NEXT_WORD				; passa para altura
+	MOV R6, [R4]			; obtem a altura do boneco
+	SUB R4, MOVE_PREVIOUS_WORD				; repoe o R4 com o valor da largura
+
+erase_pixels:       		; desenha os pixels do boneco a partir da tabela
+	MOV	R3, 0				; cor para apagar o próximo pixel do boneco
+	CALL	draw_pixel	; escreve cada pixel do boneco
+     ADD  R2, 1             ; proxima coluna
+     SUB  R5, 1				; menos uma coluna para tratar
+     JNZ  erase_pixels      ; continua ate percorrer toda a largura do objeto
+	MOV R5, [R4]			; repoe a largura	
+	MOV R2, R7				; repoe a coluna
+	 ADD R1, 1				; proxima linha
+	 SUB R6, 1				; menos uma linha para tratar
+	 JNZ erase_pixels
+
+	POP R7
+	POP R6
+	POP	R5
+	POP R4
+	POP	R3
+	POP	R2
+	POP R1
+	RET
+
+; **********************************************************************
+; draw_object - Desenha um boneco na linha e coluna indicadas
+;			    com a forma e cor definidas na tabela indicada.
+; Argumentos:   R1 - linha
+;               R2 - coluna
+;               R4 - tabela que define o boneco
+;
+; **********************************************************************
+draw_object:       		; desenha o boneco a partir da tabela
+	PUSH	R1
+	PUSH	R2
+	PUSH	R3
+	PUSH	R4
+	PUSH	R5
+	PUSH	R6
+	PUSH 	R7
+	PUSH	R8
+
+	MOV	R7, R2				; guarda o valor da coluna 
+	MOV	R5, [R4]			; obtem a largura do boneco
+	MOV R8, R5				; guarda a largura
+	ADD R4, MOVE_NEXT_WORD				; endereço da tabela que define a altura do boneco
+	MOV R6, [R4]			; obtem a altura do boneco
+	ADD	R4, MOVE_NEXT_WORD				; primeira cor
+
+desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
+	MOV	R3, [R4]			; obtem a cor do proximo pixel do boneco
+	CALL draw_pixel
+	ADD	R4, MOVE_NEXT_WORD				; endereco da cor do proximo pixel (2 porque cada cor de pixel e uma word)
+    ADD  R2, 1             ; proxima coluna
+    SUB  R5, 1				; menos uma coluna para tratar
+    JNZ  desenha_pixels    ; continua ate percorrer toda a largura do objeto
+	ADD R1, 1				; proxima linha
+	MOV R2, R7				; repoe a coluna no principio 
+	MOV R5, R8				; repoe a largura  
+	SUB R6, 1				; menos uma linha para tratar
+	JNZ desenha_pixels		; continua até percorrer todas as linhas
+	
+	POP R8
+	POP R7
+	POP R6
+	POP	R5
+	POP	R4
+	POP	R3
+	POP	R2
+	POP R1
+	RET
+
+; ********************************************************
+; test_upper_limit_missile - testa o limite superior do missil
+; 							de forma a que ele só chegue aos 
+; 							objetos grandes
+; ARGUMENTOS: R1 - coordenada y do missil
+; *****************************************************
+
+test_upper_limit_missile:
+	PUSH R3
+	MOV R3,MISSILE_LIN_MAX
+	CMP R1,R3							; compara a coordenada do missil com a linha maxima onde ele pode chegar
+	JZ erase_missile					; se estiver nessa linha apaga o missil
+	JMP end_test_upper_limit_missile	; caso contrario sai da rotina
+erase_missile:
+	CALL erase_object					; apaga o missil
+	MOV R0,0
+	MOV [MISSILE_NUMBER],R0				; atualiza o umero de misseis no ecra (0)
+end_test_upper_limit_missile:
+	POP R3
+	RET
+
+
+
+; **********************************************************************
+; move_object - Rotina cooperativa que desenha e faz descer o objeto a crescer
 ;			 numa dada coluna. Se chegar ao fundo, passa ao topo.
 ;			As coordenadas dos objetos sao guardadas numa tabela de 
 ;			tabelas (coord_objects), em que cada word possui uma tabela
@@ -1075,51 +1103,51 @@ explosion:					; a explosao deve durar um ciclo e permitir a criacao de um objet
 move:	
 	SUB R5, MOVE_PREVIOUS_TWO_WORDS			; R5 volta a ser o endereco da pos Y
 	MOV  [R5], R1		; atualiza na tabela a linha em que esta o meteoro
-	CMP R1,	1
-	JLE fragment1
+	CMP R1,	1			; compara a coordenada y do objeto com 1
+	JLE fragment1		; se for menor ou igual desenha o fragmento 1
 
 	MOV R7, 4
-	CMP R1, R7 
-	JLE fragment2
+	CMP R1, R7 			; compara a coordenada y do objeto com 4
+	JLE fragment2		; se for menor ou igual desenha o fragmento 2
 
-	CMP R3, TYPE_METEOR
-	JZ is_meteor
-	CMP R3, TYPE_COIN
-	JZ is_coin
+	CMP R3, TYPE_METEOR	; ve se o objeto e um meteoro 
+	JZ is_meteor		; se sim inicia a rotina de escrita dos meteoros
+	CMP R3, TYPE_COIN	; ve se o objeto e uma moeda
+	JZ is_coin			; se sim inicia a rotina de escrita das moedas
 	MOV R8, 0
 	CMP R8, TYPE_METEOR	; objeto e do tipo meteoro?
 	JZ is_meteor			; se sim desenha um meteoro
 
 is_coin:
 	MOV R7, 8
-	CMP R1, R7
-	JLE coin1
+	CMP R1, R7 			; compara a coordenada y do objeto com 8
+	JLE coin1			; se for menor ou igual desenha a moeda 1
 
 	MOV R7, 14 
-	CMP R1, R7
-	JLE coin2
+	CMP R1, R7			; compara a coordenada y do objeto com 14
+	JLE coin2			; se for menor ou igual desenha a moeda 2
 
 
-	JMP coin3
+	JMP coin3			; se for maior que 14 desenha a moeda 3
 
 is_meteor:
 	MOV R7, 8
-	CMP R1, R7
-	JLE meteor1
+	CMP R1, R7			; compara a coordenada y do objeto com 8
+	JLE meteor1			; se for menor ou igual desenha a meteor 1
 
-	MOV R7, 14
-	CMP R1, R7
+	MOV R7, 14			; compara a coordenada y do objeto com 14
+	CMP R1, R7			; se for menor ou igual desenha o meteoro 2
 	JLE meteor2
 
 
-	JMP meteor3
+	JMP meteor3			; se for maior que 14 desenha o meteoro 3
 
-fragment1:
+fragment1:					; rotinas que definem a tabela a escrever e escrevem-as
 	MOV R4, DEF_FRAGMENT_1
 	SUB R1, 1
 	CALL erase_object
 	ADD R1, 1
-	CALL draw_object		; escreve o meteoro na nova linha
+	CALL draw_object		
 	JMP end_move_object
 
 fragment2:
@@ -1178,7 +1206,7 @@ coin3:
 	CALL draw_object
 	JMP end_move_object
 
-end_move_object:
+end_move_object:			; sai da rotina
 	POP	 R8
 	POP  R7
 	POP  R6
@@ -1189,287 +1217,71 @@ end_move_object:
 	POP  R1
 	RET
 
-
-
-; ********************************************************
-;
-;******************************************************
-
-test_upper_limit_missile:
-	PUSH R3
-	MOV R3,MISSILE_LIN_MAX
-	CMP R1,R3
-	JZ erase_missile
-	JMP end_test_upper_limit_missile
-erase_missile:
-	CALL erase_object
-	MOV R0,0
-	MOV [MISSILE_NUMBER],R0
-end_test_upper_limit_missile:
-	POP R3
-	RET
-
-
-; ************************************************************************
-; update_display - 
-;
-; ************************************************************************
-update_display:
+; **************************************************************************************
+; colision_meteor - desenvolve tudo oque tem a ver com a colisao do rover com um meteoro
+; **************************************************************************************
+colision_meteor:
+	PUSH R0
 	PUSH R1
 	PUSH R2
 	PUSH R3
-	PUSH R6
+	PUSH R4
+	PUSH R5
+	CMP R6, TYPE_METEOR	
+	JNZ exit_colision_meteor	; se for meteoro
+	SUB R3, MOVE_PREVIOUS_TWO_WORDS	; volta a posicao Y
+	MOV R0, [R3]	; R0 = pos Y do meteoro
+	MOV R1, DEF_METEOR_3	; vai buscar o meteoro
+	ADD R1, MOVE_NEXT_WORD				; vai buscar a altura do meteoro
+	MOV R2, [R1]			; R2 = altura do meteoro
+	ADD R0, R2				; R0 passa a ser a linha de baixo do meteoro
+	MOV R4, [POS_ROVER_Y]	; R4 = linha de cima do rover
+	CMP R0, R4
+	JGE meteor_test_X		; se for possivel haver colisao
+	JMP colision_meteor_not_possible
+meteor_test_X:
+	MOV R4, [POS_ROVER_X]
+	ADD R3, MOVE_NEXT_WORD				; endereco da coordenada X do meteoro
+	MOV R5, [R3] 			; posicao X do meteoro
+	MOV R1, [DEF_METEOR_3] ; largura do meteoro
+	SUB R1, 1				
+	ADD R5, R1		; posicao direita X do meteoro
+	CMP R4, R5		; ve se a posicao do rover e maior que o limite direito do meteoro
+	JGT colision_meteor_not_possible
 
-	MOV R2,[INC_DEC_DISPLAY]	; R2 = valor a somar ao display
-	CMP R2, 0
-	JZ exit_update_display
-	MOV R1, [DISPLAY_VAL]
-	CALL test_display_limits
-	MOV [DISPLAY_VAL], R1		; guarda em memoria o novo valor do display
-	MOV R6, DISPLAY_MAX
-	CMP R1, R6
-	JZ	change_display_100
-	CALL HEX_TO_DEC				; altera-se este vaor para decimal
+	MOV R4, [POS_ROVER_X]
+	MOV R5, [R3]			; posicao X do meteoro
+	MOV R1, [DEF_ROVER]		
+	ADD R4, R1
+	SUB R4, 1				; limite direito do rover
+	CMP R4, R5	; ve se o limite direito do rover e menor que o a posicao do meteoro
+	MOV R0, ON
+	JLT colision_meteor_not_possible
+	JMP handle_colision_meteor
 
-change_display:
-	MOV [DISPLAY], R1			; altera o display com o valor em decimal
-	MOV R3, OFF
-	MOV [INC_DEC_DISPLAY],R3
-	JMP exit_update_display
+handle_colision_meteor:
+	MOV R0, TOUCH_METEOR_SOUND
+	MOV [PLAY_MULTIMEDIA], R0
+	MOV R0, ON
+	MOV [LOST_COLISION], R0
+	MOV R1,ON
+	JMP exit_colision_meteor
 
-change_display_100:
-	MOV R1, DISPLAY_INIT
-	MOV [DISPLAY], R1			; altera o display com o valor em decimal
-	MOV R3, OFF
-	MOV [INC_DEC_DISPLAY],R3
+colision_meteor_not_possible:
+	MOV R0, ON
 
-exit_update_display:
-	POP R6
-	POP R3
-	POP R2
-	POP R1
-	RET
-
-; **********************************************************************
-; HEX_TO_DEC - changes the number in hexadecimal to decimal
-; Argumentos:   R1 - número hexadecimal
-;
-; **********************************************************************
-HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H EXCLUSIVE) para decimal
-	PUSH R0 					; converte o numero em R1, e deixa-o em R1
-	PUSH R2
-
-	MOV  R0, HEXTODEC
-	MOV  R2, R1
-	DIV  R1, R0 				; coloca o algarismo das dezenas em decimal em R1
-	MOD  R2, R0 				; coloca o algarismo das unidades em decimal em R2
-	SHL  R1, 4
-	OR   R1, R2					; coloca o numero em decimal em R1
-	
-	POP  R2
-	POP  R0
-	RET
-
-; ***********************************************************
-; TESTA_LIMITES_DISPLAY - Testa se o valor do display  esta 
-;				dentro dos limite estabelecidos (0-64 hexa)
-; Argumentos:	R1 - valor do display
-;				R2 - valor a aumentar ou diminuir no display
-;
-; Retorna: 		R2 - 0 se ja tiver chegado ao limite, inalterado caso contrario
-;
-; **********************************************************
-test_display_limits:
-	PUSH R2
-	PUSH R3
-	PUSH R5	
-	ADD R1, R2
-
-test_display_min:
-	MOV R5, DISPLAY_MIN					; valor minimo do display
-	CMP R1, R5
-	JGT test_display_max		; ja nao pode diminuir mais
-	MOV R1, R5
-	MOV R3, TRUE
-	MOV [LOST_GAS], R3
-	JMP end_test_display_limits
-
-test_display_max:
-	MOV R5, DISPLAY_MAX					; valor minimo do display
-	CMP R1, R5
-	JLE end_test_display_limits			; ja nao pode diminuir mais
-	MOV R1, R5
-
-end_test_display_limits:
+exit_colision_meteor:
 	POP R5
+	POP R4
 	POP R3
 	POP R2
-	RET
-
-
-; **********************************************************************
-; DESENHA_BONECO - Desenha um boneco na linha e coluna indicadas
-;			    com a forma e cor definidas na tabela indicada.
-; Argumentos:   R1 - linha
-;               R2 - coluna
-;               R4 - tabela que define o boneco
-;
-; **********************************************************************
-draw_object:       		; desenha o boneco a partir da tabela
-	PUSH	R1
-	PUSH	R2
-	PUSH	R3
-	PUSH	R4
-	PUSH	R5
-	PUSH	R6
-	PUSH 	R7
-	PUSH	R8
-
-	MOV	R7, R2				; guarda o valor da coluna 
-	MOV	R5, [R4]			; obtem a largura do boneco
-	MOV R8, R5				; guarda a largura
-	ADD R4, MOVE_NEXT_WORD				; endereço da tabela que define a altura do boneco
-	MOV R6, [R4]			; obtem a altura do boneco
-	ADD	R4, MOVE_NEXT_WORD				; primeira cor
-
-desenha_pixels:       		; desenha os pixels do boneco a partir da tabela
-	MOV	R3, [R4]			; obtem a cor do proximo pixel do boneco
-	CALL draw_pixel
-	ADD	R4, MOVE_NEXT_WORD				; endereco da cor do proximo pixel (2 porque cada cor de pixel e uma word)
-    ADD  R2, 1             ; proxima coluna
-    SUB  R5, 1				; menos uma coluna para tratar
-    JNZ  desenha_pixels    ; continua ate percorrer toda a largura do objeto
-	ADD R1, 1				; proxima linha
-	MOV R2, R7				; repoe a coluna no principio 
-	MOV R5, R8				; repoe a largura  
-	SUB R6, 1				; menos uma linha para tratar
-	JNZ desenha_pixels		; continua até percorrer todas as linhas
-	
-	POP R8
-	POP R7
-	POP R6
-	POP	R5
-	POP	R4
-	POP	R3
-	POP	R2
 	POP R1
+	POP R0
 	RET
 
-; **********************************************************************
-; APAGA_BONECO - Apaga um boneco na linha e coluna indicadas
-;			  com a forma definida na tabela indicada.
-; Argumentos:   R1 - linha
-;               R2 - coluna
-;               R4 - tabela que define o boneco
-;
-; **********************************************************************
-erase_object:
-	PUSH	R1
-	PUSH	R2
-	PUSH	R3
-	PUSH	R4
-	PUSH	R5
-	PUSH 	R6
-	PUSH 	R7
-
-	MOV R7, R2				; guarda o valor da coluna
-	MOV	R5, [R4]			; obtem a largura do boneco
-	ADD R4, MOVE_NEXT_WORD				; passa para altura
-	MOV R6, [R4]			; obtem a altura do boneco
-	SUB R4, MOVE_PREVIOUS_WORD				; repoe o R4 com o valor da largura
-
-erase_pixels:       		; desenha os pixels do boneco a partir da tabela
-	MOV	R3, 0				; cor para apagar o próximo pixel do boneco
-	CALL	draw_pixel	; escreve cada pixel do boneco
-     ADD  R2, 1             ; proxima coluna
-     SUB  R5, 1				; menos uma coluna para tratar
-     JNZ  erase_pixels      ; continua ate percorrer toda a largura do objeto
-	MOV R5, [R4]			; repoe a largura	
-	MOV R2, R7				; repoe a coluna
-	 ADD R1, 1				; proxima linha
-	 SUB R6, 1				; menos uma linha para tratar
-	 JNZ erase_pixels
-
-	POP R7
-	POP R6
-	POP	R5
-	POP R4
-	POP	R3
-	POP	R2
-	POP R1
-	RET
-
-
-; **********************************************************************
-; ESCREVE_PIXEL - Escreve um pixel na linha e coluna indicadas.
-; Argumentos:   R1 - linha
-;               R2 - coluna
-;               R3 - cor do pixel (em formato ARGB de 16 bits)
-;
-; **********************************************************************
-draw_pixel:
-	MOV  [DEF_LIN], R1		; seleciona a linha
-	MOV  [DEF_COL], R2	; seleciona a coluna
-	MOV  [DEF_PIXEL], R3		; altera a cor do pixel na linha e coluna ja selecionadas
-	RET
-
-
-
-
-; **********************************************************************
-; TESTA_LIMITES - Testa se o rover chegou aos limites do ecra e nesse caso
-;			   impede o movimento (forca R7 a 0)
-; Argumentos:	R2 - coluna em que o objeto está
-;				R6 - largura do boneco
-;				R7 - sentido de movimento do boneco (valor a somar a coluna
-;					em cada movimento: +1 para a direita, -1 para a esquerda)
-;
-; Retorna: 		R7 - 0 se ja tiver chegado ao limite, inalterado caso contrario	
-;
-; **********************************************************************
-test_rover_limits:
-	PUSH	R2
-	PUSH	R5
-	PUSH	R6
-lado_a_testar:
-	CMP	R0, KEY_RIGHT					
-	JZ	test_right_limit	; se se for deslocar para a direita
-	CMP R0, KEY_LEFT
-	JZ	test_left_limit	; se se for deslocar para a esquerda
-	MOV R1, 0
-	JMP end_test_rover_limits
-test_left_limit:			; vê se o rover chegou ao limite esquerdo
-	MOV	R5, COL_MIN			; obtem o valor da coluna minima
-	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
-	CMP	R2, R5					; compara a posicao do rover com o limite esquerdo
-	JZ	no_movement		; ja nao pode mover mais
-	MOV R7, -1
-	JMP end_test_rover_limits		; entre limites, mantem o valor do R7
-test_right_limit:			; ve se o boneco chegou ao limite direito	
-	MOV R2, [POS_ROVER_X]		; obtem coluna em que o rover esta
-	MOV R6, [DEF_ROVER]			; obtem a largura do rover
-	ADD	R6, R2					; posicao do extremo direito do boneco + 1
-	SUB R6, 1					; posicao do extremo direito do boneco
-	MOV	R5, COL_MAX			; obtem o valor da coluna maxima
-	CMP	R6, R5
-	JZ no_movement			; ja nao pode mover mais
-	MOV R7, 1
-	JMP	end_test_rover_limits		; entre limites, mantem o valor do R7
-no_movement:
-	MOV	R7, 0					; impede o movimento, forçando R7 a 0
-end_test_rover_limits:	
-	POP	R6
-	POP	R5
-	POP R2
-	RET
-
-
-; **********************************************************************
-;		Rotinas Auxiliares
-; **********************************************************************
-; *****************
-;
-;*****************
+; **************************************************************************************
+; colision_moeda - desenvolve tudo oque tem a ver com a colisao do rover com uma moeda
+; **************************************************************************************
 colision_moeda:
 	PUSH R0
 	PUSH R1
@@ -1540,59 +1352,37 @@ exit_colision_coin:
 	POP R0
 	RET
 
-; *****************
-;
-;*****************
-colision_meteor:
+; *****************************************************************
+; colision_missile - retorna TRUE se omissile colidir com um objeto
+; *****************************************************************
+
+colision_missile: 				; R0 endereco do meteoro
 	PUSH R0
 	PUSH R1
 	PUSH R2
 	PUSH R3
 	PUSH R4
 	PUSH R5
-	CMP R6, TYPE_METEOR	
-	JNZ exit_colision_meteor	; se for meteoro
-	SUB R3, MOVE_PREVIOUS_TWO_WORDS	; volta a posicao Y
-	MOV R0, [R3]	; R0 = pos Y do meteoro
-	MOV R1, DEF_METEOR_3	; vai buscar o meteoro
-	ADD R1, MOVE_NEXT_WORD				; vai buscar a altura do meteoro
-	MOV R2, [R1]			; R2 = altura do meteoro
-	ADD R0, R2				; R0 passa a ser a linha de baixo do meteoro
-	MOV R4, [POS_ROVER_Y]	; R4 = linha de cima do rover
-	CMP R0, R4
-	JGE meteor_test_X		; se for possivel haver colisao
-	JMP colision_meteor_not_possible
-meteor_test_X:
-	MOV R4, [POS_ROVER_X]
-	ADD R3, MOVE_NEXT_WORD				; endereco da coordenada X do meteoro
-	MOV R5, [R3] 			; posicao X do meteoro
-	MOV R1, [DEF_METEOR_3] ; largura do meteoro
-	SUB R1, 1				
-	ADD R5, R1		; posicao direita X do meteoro
-	CMP R4, R5		; ve se a posicao do rover e maior que o limite direito do meteoro
-	JGT colision_meteor_not_possible
+	PUSH R6
+	PUSH R7
+	
+	MOV  R8, FALSE
 
-	MOV R4, [POS_ROVER_X]
-	MOV R5, [R3]			; posicao X do meteoro
-	MOV R1, [DEF_ROVER]		
-	ADD R4, R1
-	SUB R4, 1				; limite direito do rover
-	CMP R4, R5	; ve se o limite direito do rover e menor que o a posicao do meteoro
-	MOV R0, ON
-	JLT colision_meteor_not_possible
-	JMP handle_colision_meteor
+	CALL set_coordinates_colision_missile
 
-handle_colision_meteor:
-	MOV R0, TOUCH_METEOR_SOUND
-	MOV [PLAY_MULTIMEDIA], R0
-	MOV R0, ON
-	MOV [LOST_COLISION], R0
-	MOV R1,ON
-	JMP exit_colision_meteor
+	CMP  R4, R1
+	JLT  exit_missile_colision
+	CMP  R4, R5
+	JGT  exit_missile_colision
+	CMP  R7, R2
+	JLT  exit_missile_colision
+	CMP  R7, R6 	
+	JGT  exit_missile_colision 	; testam se o missil esta fora da "caixa" em que o meteoro se insere
 
-colision_meteor_not_possible:
-	MOV R0, ON
-exit_colision_meteor:
+	MOV  R8, TRUE
+exit_missile_colision:
+	POP	R7
+	POP R6
 	POP R5
 	POP R4
 	POP R3
@@ -1600,18 +1390,317 @@ exit_colision_meteor:
 	POP R1
 	POP R0
 	RET
-; *****************
+
+; *****************************************************************************
+;	handle_colission_missile_coin - efetua os efeitos multimedia caso 
+;									ocorra uma colisao entre o missil e 
+;									a moeda e desenha a explosao
+; *****************************************************************************
+handle_colision_missile_coin:
+	PUSH R1
+	PUSH R5
+	CMP R2, TYPE_COIN				; se for uma moeda
+	JNZ exit_handle_coin
+	MOV R1, HIT_COIN_SOUND
+	MOV [PLAY_MULTIMEDIA], R1		; faz o som
+	MOV R5, DEF_COIN_3
+	CALL draw_explosion
+exit_handle_coin:
+	POP R5
+	POP R1
+	RET
+
+; *****************************************************************************
+;	handle_colission_missile_meteor - efetua os efeitos multimedia caso 
+;									ocorra uma colisao entre o missil e 
+;									um meteoro e desenha a explosao
+; *****************************************************************************
+
+handle_colision_missile_meteor:
+	PUSH R1
+	PUSH R5
+	CMP R2, TYPE_METEOR
+	JNZ exit_handle_meteor
+	MOV R1, DISPLAY_METEOR		; altera o display para o game over
+	MOV [INC_DEC_DISPLAY], R1
+	MOV R1, HIT_METEOR_SOUND	
+	MOV [PLAY_MULTIMEDIA], R1	; faz o som
+	MOV R5, DEF_METEOR_3
+	CALL draw_explosion
+exit_handle_meteor:
+	POP R5
+	POP R1
+	RET
+
+; ***********************************************************
+; test_display_limits - Testa se o valor do display  esta 
+;						dentro dos limite estabelecidos (0-64 hexa)
+; Argumentos:	R1 - valor do display
+;				R2 - valor a aumentar ou diminuir no display
 ;
-;*****************
+; Retorna: 		R2 - 0 se ja tiver chegado ao limite, inalterado caso contrario
+;
+; **********************************************************
+test_display_limits:
+	PUSH R2
+	PUSH R3
+	PUSH R5	
+	ADD R1, R2
+
+test_display_min:
+	MOV R5, DISPLAY_MIN					; valor minimo do display
+	CMP R1, R5
+	JGT test_display_max		; ja nao pode diminuir mais
+	MOV R1, R5
+	MOV R3, TRUE
+	MOV [LOST_GAS], R3
+	JMP end_test_display_limits
+
+test_display_max:
+	MOV R5, DISPLAY_MAX					; valor minimo do display
+	CMP R1, R5
+	JLE end_test_display_limits			; ja nao pode diminuir mais
+	MOV R1, R5
+
+end_test_display_limits:
+	POP R5
+	POP R3
+	POP R2
+	RET
+
+; **********************************************************************
+; HEX_TO_DEC - transforma um numero hexadecimal num decimal
+; 
+; Argumentos:   R1 - número hexadecimal
+; **********************************************************************
+HEX_TO_DEC: 				; converto numeros hexadecimais (até 63H EXCLUSIVE) para decimal
+	PUSH R0 					; converte o numero em R1, e deixa-o em R1
+	PUSH R2
+
+	MOV  R0, HEXTODEC
+	MOV  R2, R1
+	DIV  R1, R0 				; coloca o algarismo das dezenas em decimal em R1
+	MOD  R2, R0 				; coloca o algarismo das unidades em decimal em R2
+	SHL  R1, 4
+	OR   R1, R2					; coloca o numero em decimal em R1
+	
+	POP  R2
+	POP  R0
+	RET
+
+; **********************************************************************
+; lose - apaga todos os pixeis do ecra
+; **********************************************************************
+lose:
+	PUSH R1
+	PUSH R2
+	PUSH R4
+	MOV R1, 0
+	MOV R2, 0
+	MOV R4, DEF_SCREEN		; tabela com o tamanho do ecra em pixeis
+	CALL erase_object
+	POP R4
+	POP R2
+	POP R1
+	RET
+
+; ********************************************************************************
+; lose_contact - mostra o ecra de game over quando o rover e atingido pelo meteoro
+; *******************************************************************************
+lose_contact:
+	PUSH R1
+	MOV R1, LOSE_CONTACT_METEOR
+	MOV [BACKGROUND_SELECT], R1
+	POP R1
+	RET
+
+; ********************************************************************************
+; lose_gas - mostra um GIF quando a energia acaba
+; *******************************************************************************
+lose_gas:
+	PUSH R1
+	MOV R1, OUT_OF_GAS_GIF
+	MOV [PLAY_MULTIMEDIA_LOOP], R1
+	POP R1
+	RET
+
+; **************************************************************************
+; stop_pressed - mostra o ecra do menu inicial quando se clica na tecla stop
+; *************************************************************************
+stop_pressed:
+	PUSH R1
+	MOV R1, START_MENU
+	MOV [BACKGROUND_SELECT], R1
+	POP R1
+	RET
+
+; **********************************************************
+; colision_happened_check - verifica se ocorreu uma colisao
+; *********************************************************
+colision_happened_check:
+	PUSH R9
+	MOV R9, [COLISION_MISSILE_HAPPENED]
+	CMP R9, TRUE
+	JNZ end_colision_happened_check
+	MOV R9, 0
+	MOV [MISSILE_NUMBER], R9
+	MOV [COLISION_MISSILE_HAPPENED], R9
+end_colision_happened_check:
+	POP R9
+	RET
+
+; ************************************************
+; draw_explosion - desenha a explosao de um objeto
+; ************************************************
+draw_explosion:
+	PUSH R1
+	PUSH R2
+	PUSH R4
+	PUSH R9
+
+	MOV R1, [POS_MISSILE_Y]
+	MOV R2, [POS_MISSILE_X]
+	MOV R4, DEF_MISSILE
+	CALL erase_object		;apaga o missil
+
+	MOV R1, [R0]			; R1 = POS Y
+	ADD R0, MOVE_NEXT_WORD
+	MOV R2, [R0]			; R2= POS X
+	MOV R4, R5	; R4 = DEF
+	CALL erase_object		; apaga o boneco
+
+	MOV R4, DEF_EXPLOSION	; R4 = DEF
+	CALL draw_object		; desenha a explosao
+	
+	ADD R0, MOVE_NEXT_WORD
+	MOV R4, TYPE_EXPLOSION
+	MOV [R0], R4			; muda o tipo do objeto para explosao
+	MOV R9, TRUE	; houve colisao
+	MOV [COLISION_MISSILE_HAPPENED], R9
+
+	POP  R9
+	POP R4
+	POP R2
+	POP R1
+	RET
+
+
+	
+
+; ****************************************************************************
+; set_coordinates_colision_missile - obtem as coordenadas dos pontos extremos
+;									 opostos de um objeto para comparacao
+; ****************************************************************************
+
+set_coordinates_colision_missile:
+	MOV R2, [R0] 				; coordenada Y do meteoro
+	ADD  R0, MOVE_NEXT_WORD
+	MOV R1, [R0] 				; coordenada X do meteoro
+
+	MOV R5, [R4] 				; largura do meteoro
+	ADD  R5,R1 					
+	SUB R5, 1					; coordenada x mais a direita do meteoro
+	ADD  R4, MOVE_NEXT_WORD
+	MOV R6, [R4] 				; altura do meteoro
+	ADD  R6,R2 				
+	SUB R6, 1						; coordenada y mais a baixo do meteoro
+	MOV R4, [POS_MISSILE_X] 				; coordenada x do missil
+	MOV R7, [POS_MISSILE_Y] 				; coordenada y do missil
+	RET
+
+; ******************************************************
+; random_number - obtem um numero aleatorio entre 0 e 8
+; ******************************************************
+
+random_number_0_8:	; obtem um numero random entre 0 e 8
+	PUSH R0
+	PUSH R1
+	MOV R1,KEY_COL
+	MOVB R0, [R1]
+	SHR R0, 5
+	MOV [RANDOM_NUMBER], R0
+	POP R1
+	POP R0
+	RET
+
+; ******************************************************
+; random_column - obtem o numero de uma coluna aleatoria
+; ******************************************************
+
+random_column:		; obtem uma coluna random com os valores: 0,8,16,24,32,40,48,56
+	PUSH R0
+	PUSH R1
+	CALL random_number_0_8
+	MOV R1, [RANDOM_NUMBER]
+	MOV R0, 8
+	MUL R1, R0
+	MOV [RANDOM_NUMBER], R1
+	POP R1
+	POP R0
+	RET
+
+; ***********************************************************************
+; random_type - obtem um numero aleatoria que representa o tipo do objeto
+; ***********************************************************************
+random_type:		; obtem um tipo random sendo moeda quando o valor e 48 ou 56, e meteoro no resto
+	PUSH R0
+	PUSH R1
+	PUSH R2
+	CALL random_number_0_8
+	MOV R1, [RANDOM_NUMBER]
+	MOV R0, 8
+	MUL R1, R0
+	MOV R2, 48
+	CMP R1, R2
+	JGE random_type_moeda
+	MOV R1, TYPE_METEOR
+	MOV [RANDOM_NUMBER], R1
+	JMP random_type_end
+random_type_moeda:
+	MOV R1, TYPE_COIN
+	MOV [RANDOM_NUMBER],R1
+	JMP random_type_end
+random_type_end:
+	MOV [RANDOM_NUMBER], R1
+	POP R2
+	POP R1
+	POP R0
+	RET
+
+
+
+
+
+; **********************************************************************
+; draw_pixel - Escreve um pixel na linha e coluna indicadas.
+; Argumentos:   R1 - linha
+;               R2 - coluna
+;               R3 - cor do pixel (em formato ARGB de 16 bits)
+;
+; **********************************************************************
+draw_pixel:
+	MOV  [DEF_LIN], R1		; seleciona a linha
+	MOV  [DEF_COL], R2	; seleciona a coluna
+	MOV  [DEF_PIXEL], R3		; altera a cor do pixel na linha e coluna ja selecionadas
+	RET
+
+
+
+
+; ***********************************************************
+; restart - chama rotinas que vao realizar um restart ao jogo
+;***********************************************************
 restart:
 	CALL init_game_various
 	CALL init_display	;dá reset ao display
 	CALL init_rover
 	CALL reset_objects
 	RET
-; **************************
-;
-; **************************
+
+
+; *******************************************
+; reset_objects - mete os objetos a zero
+; ******************************************
 
 reset_objects:	
 	PUSH R1
@@ -1634,9 +1723,11 @@ end_reset_objects:
 	POP R2
 	POP R1
 	RET
-; **************************
-;
-; **************************
+
+
+; *****************************************
+; init_rover - inicializa o rover no ecra
+; ****************************************
 
 init_rover:
 	PUSH R1
@@ -1652,9 +1743,11 @@ init_rover:
 	POP R2
 	POP R1
 	RET
-; **************************
-;
-; **************************
+
+
+; *************************************************************
+; init_game_various -  altera a multimedia para o inicio do jogo
+; *************************************************************
 init_game_various:
 	PUSH R1
 	MOV R1, OUT_OF_GAS_GIF
@@ -1672,73 +1765,10 @@ init_game_various:
 	MOV  [BACKGROUND_SELECT], R1		; seleciona o cenario de fundo
 	POP R1
 	RET
-; *****************
-; R1 - tecla que tem de ser premida
-;*****************
 
-wait_key:
-	PUSH R1
-	PUSH R2
-wait_play:			; seleciona o cenario de fundo
-	CALL keyboard
-	MOV R2, [PRESSED_KEY]
-	CMP R2, R1
-	JNZ wait_play
-
-wait_play_2:
-	CALL keyboard
-	MOV R2, [PRESSED_KEY]
-	CMP R2, R1
-	JNZ end_wait_key_play
-	JMP wait_play_2
-
-end_wait_key_play:
-	POP R2
-	POP R1
-	RET
-
-
-
-; *************************
-;
-; **************************
-
-lose:
-	PUSH R1
-	PUSH R2
-	PUSH R4
-	MOV R1, 0
-	MOV R2, 0
-	MOV R4, DEF_SCREEN
-	CALL erase_object
-	POP R4
-	POP R2
-	POP R1
-	RET
-
-lose_contact:
-	PUSH R1
-	MOV R1, LOSE_CONTACT_METEOR
-	MOV [BACKGROUND_SELECT], R1
-	POP R1
-	RET
-
-lose_gas:
-	PUSH R1
-	MOV R1, OUT_OF_GAS_GIF
-	MOV [PLAY_MULTIMEDIA_LOOP], R1
-	POP R1
-	RET
-
-stop_pressed:
-	PUSH R1
-	MOV R1, START_MENU
-	MOV [BACKGROUND_SELECT], R1
-	POP R1
-	RET
-; *************************
-;
-; **************************
+; ****************************************
+; init_display - incializa o display a 100
+; ****************************************
 init_display:
 	PUSH R1
 	MOV R1, DISPLAY_INIT		
@@ -1747,6 +1777,7 @@ init_display:
 	MOV [DISPLAY_VAL], R1					; reinicia o valor do display
 	POP R1
 	RET
+
 
 ; **********************************************************************
 ;		Rotinas de Interrupcao
