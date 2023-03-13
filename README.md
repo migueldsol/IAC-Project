@@ -7,4 +7,4 @@ Project repository for the Introduction to computer architecture class of 2021-2
 - [Project](Project/projeto-chuva-meteoros.pdf)
 - [Files](Project/Grupo04)
 
-**Grade:** _19.75_ / 20.0
+**Grade:** _18.4_ / 20.0
